@@ -57,5 +57,6 @@ DGM-HUB/
 │     └─ main.py
 ├─ .gitignore
 ├─ DGM-HUB_TREE.txt
+├─ DGM-MAT_TREE.txt
 ├─ pyproject.toml
 └─ README.md
