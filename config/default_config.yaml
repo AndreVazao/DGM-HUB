@@ -1,0 +1,17 @@
+paths:
+  repos_root: "C:\\ProgramasGodMode"
+  vault_root: "C:\\AndreOS-Memory"
+  install_root: "C:\\DevopsGodMode"
+
+allowed_paths:
+  - "C:\\ProgramasGodMode"
+  - "C:\\AndreOS-Memory"
+  - "C:\\DevopsGodMode"
+  - "C:\\AI"
+  - "C:\\WinZip"
+
+logging:
+  retention: hybrid
+
+security:
+  require_approval_for_dangerous: true
