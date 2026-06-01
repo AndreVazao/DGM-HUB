@@ -11,13 +11,30 @@ class FilesystemTool(Tool):
         self.guard = guard
 
     def execute(self, operation: str, path: str, content: str | None = None):
+
         if not self.guard.is_allowed(path):
             raise PermissionError(f"Path denied: {path}")
 
         target = Path(path)
 
         if operation == "read":
-            return target.read_text(encoding="utf-8")
+
+            raw = target.read_bytes()
+
+            # UTF-8 normal
+            try:
+                return raw.decode("utf-8")
+            except UnicodeDecodeError:
+                pass
+
+            # UTF-16 LE (Windows / PowerShell redirects)
+            try:
+                return raw.decode("utf-16-le")
+            except UnicodeDecodeError:
+                pass
+
+            # fallback seguro
+            return raw.decode("latin-1", errors="replace")
 
         if operation == "write":
             target.parent.mkdir(parents=True, exist_ok=True)
