@@ -1,0 +1,9 @@
+[project]
+name = "dgm-hub"
+version = "0.1.0"
+description = "Local AI development gateway"
+requires-python = ">=3.12"
+
+[tool.dgm_hub]
+mode = "headless"
+platform = "windows"
