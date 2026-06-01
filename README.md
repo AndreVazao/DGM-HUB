@@ -23,3 +23,29 @@ DGM-HUB (Devop God Mode Hub) is a local AI development gateway designed to expos
 ## Status
 
 Architecture phase
+
+##🚀 COMO USAR AGORA
+📌 Árvore estruturada
+{
+  "tool": "repo",
+  "args": {
+    "operation": "tree",
+    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
+  }
+}
+📌 JSON (para IA futura)
+{
+  "tool": "repo",
+  "args": {
+    "operation": "json",
+    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
+  }
+}
+📌 Markdown (rápido para ler)
+{
+  "tool": "repo",
+  "args": {
+    "operation": "markdown",
+    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
+  }
+}
