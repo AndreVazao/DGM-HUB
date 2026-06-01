@@ -1,5 +1,8 @@
 from .registry import ToolRegistry
+from dgm_hub.tools.repo_tool import RepoTool
 
+# no init do tools manager:
+self.tools["repo"] = RepoTool()
 
 class ToolManager:
     def __init__(self, registry: ToolRegistry):
