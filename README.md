@@ -24,7 +24,7 @@ DGM-HUB (Devop God Mode Hub) is a local AI development gateway designed to expos
 
 Architecture phase
 
-##🚀 COMO USAR AGORA
+## COMO USAR AGORA🚀
 
 .📌 Árvore estruturada
 {
