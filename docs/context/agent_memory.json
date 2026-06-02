@@ -1,0 +1,10 @@
+{
+  "say hello": {
+    "success": false,
+    "fixes": 6
+  },
+  "inspect repository": {
+    "success": false,
+    "fixes": 6
+  }
+}
