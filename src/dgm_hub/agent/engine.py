@@ -1,79 +1,41 @@
-from dataclasses import dataclass
 from typing import Any
-
-
-@dataclass
-class AgentState:
-    objective: str
-    history: list[dict]
-    finished: bool = False
+from dgm_hub.agent.self_rewriting_engine import SelfRewritingEngine
 
 
 class AgentEngine:
 
     def __init__(self, runtime):
         self.runtime = runtime
+        self.rewriter = SelfRewritingEngine(runtime, self)
 
-    def run(self, objective: str, max_steps: int = 10):
+    def run(self, objective: str):
+        """
+        v3 execution entry: delegates to rewriter
+        """
+        return self.rewriter.run(objective)
 
-        state = AgentState(
-            objective=objective,
-            history=[]
-        )
+    # -----------------------------
+    # PLANNER (Required by Rewriter)
+    # -----------------------------
+    def plan(self, objective: str) -> dict:
+        """
+        Simple heuristic planner for the execution loop
+        """
+        text = objective.lower()
 
-        for _ in range(max_steps):
-
-            action = self.decide_next_action(state)
-
-            result = self.execute(action)
-
-            state.history.append({
-                "action": action,
-                "result": result
-            })
-
-            if self.is_done(result, state):
-                state.finished = True
-                break
-
-        return state
-
-    # -------------------------
-    # CORE DECISION LOGIC
-    # -------------------------
-    def decide_next_action(self, state: AgentState):
-
-        # MVP brain (sem LLM ainda)
-        if "git" in state.objective.lower():
+        if "git" in text:
             return {
                 "tool": "git",
-                "args": {
-                    "operation": "status",
-                    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
-                }
+                "args": {"operation": "status"}
             }
 
-        if "files" in state.objective.lower():
+        if "files" in text or "tree" in text:
             return {
                 "tool": "repo",
-                "args": {
-                    "operation": "tree",
-                    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
-                }
+                "args": {"operation": "tree"}
             }
 
         return {
-            "tool": "git",
-            "args": {
-                "operation": "status",
-                "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
-            }
+            "tool": "cmd",
+            "args": {"command": f"echo execution objective: {objective}"}
         }
-
-    def execute(self, action: dict):
-        return self.runtime.registry.get(
-            action["tool"]
-        ).execute(**action["args"])
-
-    def is_done(self, result: Any, state: AgentState):
-        return False

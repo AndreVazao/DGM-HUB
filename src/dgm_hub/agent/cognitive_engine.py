@@ -5,192 +5,95 @@ import traceback
 
 @dataclass
 class CognitiveState:
-
     objective: str
     success: bool = False
-
     steps: list = field(default_factory=list)
-
     memory: dict = field(default_factory=dict)
-
     errors: list = field(default_factory=list)
-
     fixes: int = 0
 
 
 class CognitiveAgent:
 
     def __init__(self, runtime):
-
         self.runtime = runtime
-
-        self.repo_root = str(
-            Path.cwd()
-        )
+        self.repo_root = str(Path.cwd())
 
     # ---------------------------------
     # MAIN LOOP
     # ---------------------------------
+    def run(self, objective: str, max_iterations=6):
 
-    def run(
-        self,
-        objective:str,
-        max_iterations=6
-    ):
+        state = CognitiveState(objective=objective)
 
-        state = CognitiveState(
-            objective=objective
-        )
-
-        for iteration in range(
-            max_iterations
-        ):
+        for iteration in range(max_iterations):
 
             try:
-
-                plan = self._plan(
-                    objective,
-                    state
-                )
-
-                result = self._execute(
-                    plan
-                )
+                plan = self._plan(objective, state)
+                result = self._execute(plan)
 
                 state.steps.append({
-
-                    "iteration":iteration,
-
-                    "plan":plan,
-
-                    "result":result
-
+                    "iteration": iteration,
+                    "plan": plan,
+                    "result": result
                 })
 
-                state.success=True
-
+                state.success = True
                 return state
 
             except Exception:
-
                 err = traceback.format_exc()
-
                 state.steps.append({
-
-                    "iteration":iteration,
-
-                    "plan":plan,
-
-                    "error":err
-
+                    "iteration": iteration,
+                    "plan": plan,
+                    "error": err
                 })
-
                 state.fixes += 1
 
         return state
 
-
     # ---------------------------------
     # PLANNER
     # ---------------------------------
-
-    def _plan(
-        self,
-        objective,
-        state
-    ):
-
+    def _plan(self, objective, state):
         text = objective.lower()
 
-        repo_args = {
-
-            "repo_path":
-            self.repo_root
-
-        }
-
         if "git" in text:
-
             return {
-
-                "tool":"git",
-
-                "operation":"status",
-
-                **repo_args
-
+                "tool": "git",
+                "operation": "status"
             }
 
-        if "repo" in text:
-
+        if "repo" in text or "inspect" in text:
             return {
-
-                "tool":"repo",
-
-                "operation":"tree",
-
-                **repo_args
-
-            }
-
-        if "inspect" in text:
-
-            return {
-
-                "tool":"repo",
-
-                "operation":"tree",
-
-                **repo_args
-
+                "tool": "repo",
+                "operation": "tree"
             }
 
         if "hello" in text:
-
             return {
-
-                "tool":"cmd",
-
-                "command":"echo hello"
-
+                "tool": "cmd",
+                "command": "echo hello"
             }
 
         return {
-
-            "tool":"git",
-
-            "operation":"status",
-
-            **repo_args
-
+            "tool": "git",
+            "operation": "status"
         }
-
 
     # ---------------------------------
     # EXECUTOR
     # ---------------------------------
-
-    def _execute(
-        self,
-        plan
-    ):
-
+    def _execute(self, plan):
         tool_name = plan["tool"]
+        plan_args = {k: v for k, v in plan.items() if k != "tool"}
 
-        args = dict(plan)
+        # CONTRACT LAYER RESOLUTION (MANDATORY PATCH)
+        args = self.runtime.contract_layer.resolve(tool_name, plan_args)
 
-        del args["tool"]
-
-        tool = self.runtime.registry.get(
-            tool_name
-        )
+        tool = self.runtime.registry.get(tool_name)
 
         if tool is None:
+            raise ValueError(f"Tool not found: {tool_name}")
 
-            raise ValueError(
-                f"Tool not found: {tool_name}"
-            )
-
-        return tool.execute(
-            **args
-        )
+        return tool.execute(**args)

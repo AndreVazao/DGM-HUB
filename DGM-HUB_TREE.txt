@@ -3,51 +3,49 @@ DGM-HUB/
 │  └─ default_config.yaml
 ├─ docs/
 │  ├─ context/
+│  │  ├─ agent_memory.json
 │  │  └─ runtime_state.md
 │  ├─ ARCHITECTURE.md
 │  └─ PROJECT_CONTEXT.md
 ├─ src/
 │  └─ dgm_hub/
-│     ├─ __pycache__/
-│     │  ├─ __init__.cpython-312.pyc
-│     │  └─ main.cpython-312.pyc
+│     ├─ agent/
+│     │  ├─ architect_mode.py
+│     │  ├─ auto_dev.py
+│     │  ├─ autonomous_dev.py
+│     │  ├─ cognitive_engine.py
+│     │  ├─ engine.py
+│     │  ├─ self_repair.py
+│     │  └─ self_rewriting_engine.py
+│     ├─ bridge/
+│     │  ├─ agent_client.py
+│     │  └─ server.py
+│     ├─ control/
+│     │  ├─ manager.py
+│     │  ├─ queue.py
+│     │  ├─ task.py
+│     │  ├─ tool_contract_layer.py
+│     │  └─ worker.py
 │     ├─ core/
-│     │  ├─ __pycache__/
-│     │  │  ├─ bootstrap.cpython-312.pyc
-│     │  │  ├─ config.cpython-312.pyc
-│     │  │  └─ runtime.cpython-312.pyc
 │     │  ├─ bootstrap.py
 │     │  ├─ config.py
 │     │  └─ runtime.py
 │     ├─ execution/
-│     │  ├─ __pycache__/
-│     │  │  └─ command_runner.cpython-312.pyc
 │     │  └─ command_runner.py
 │     ├─ mcp/
-│     │  ├─ __pycache__/
-│     │  │  ├─ router.cpython-312.pyc
-│     │  │  └─ server.cpython-312.pyc
 │     │  ├─ router.py
 │     │  └─ server.py
+│     ├─ memory/
+│     │  └─ vault.py
 │     ├─ security/
-│     │  ├─ __pycache__/
-│     │  │  └─ path_guard.cpython-312.pyc
 │     │  ├─ approval.py
 │     │  ├─ audit.py
 │     │  └─ path_guard.py
 │     ├─ tools/
-│     │  ├─ __pycache__/
-│     │  │  ├─ base.cpython-312.pyc
-│     │  │  ├─ cmd_tool.cpython-312.pyc
-│     │  │  ├─ filesystem_tool.cpython-312.pyc
-│     │  │  ├─ manager.cpython-312.pyc
-│     │  │  ├─ powershell_tool.cpython-312.pyc
-│     │  │  ├─ registry.cpython-312.pyc
-│     │  │  ├─ repo_tool.cpython-312.pyc
-│     │  │  └─ test_runner.cpython-312.pyc
 │     │  ├─ base.py
 │     │  ├─ cmd_tool.py
 │     │  ├─ filesystem_tool.py
+│     │  ├─ git_tool.py
 │     │  ├─ manager.py
 │     │  ├─ powershell_tool.py
 │     │  ├─ registry.py
@@ -57,6 +55,8 @@ DGM-HUB/
 │     └─ main.py
 ├─ .gitignore
 ├─ DGM-HUB_TREE.txt
-├─ DGM-MAT_TREE.txt
 ├─ pyproject.toml
-└─ README.md
+├─ README.md
+├─ run_agent.py
+├─ run_cognitive_agent.py
+└─ run_task.py
