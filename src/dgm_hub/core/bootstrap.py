@@ -18,7 +18,7 @@ def build_runtime(config: dict):
     )
 
     runtime.registry.register(
-        FilesystemTool()
+        FilesystemTool(guard)
     )
 
     runtime.registry.register(
