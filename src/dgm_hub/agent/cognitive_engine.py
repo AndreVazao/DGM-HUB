@@ -3,6 +3,7 @@ from pathlib import Path
 import traceback
 import json
 import re
+from dgm_hub.agent.validator import Validator
 
 
 @dataclass
@@ -20,6 +21,7 @@ class CognitiveAgent:
     def __init__(self, runtime):
         self.runtime = runtime
         self.repo = Path("C:\\ProgramasGodMode\\DGM-HUB")
+        self.validator = Validator(str(self.repo))
 
     # -----------------------------
     # MAIN LOOP
@@ -43,6 +45,22 @@ class CognitiveAgent:
 
                 # 3. CHECK SUCCESS
                 if self._is_success(result):
+
+                    # -----------------------------
+                    # VALIDATION GATE (NEW)
+                    # -----------------------------
+                    validation = self.validator.run_tests()
+                    health = self.validator.repo_health()
+
+                    step["validation"] = validation
+                    step["health"] = health
+
+                    # BLOCK COMMIT IF BROKEN
+                    if not validation["success"]:
+                        step["commit_blocked"] = True
+                        state.steps.append(step)
+                        continue
+
                     state.success = True
                     state.steps.append(step)
                     break
@@ -203,6 +221,14 @@ class CognitiveAgent:
 
         git = self.runtime.registry.get("git")
 
+        status = git.execute(
+            operation="status",
+            repo_path=str(self.repo)
+        )
+
+        if status.strip() == "":
+            return {"status": "nothing_to_commit"}
+
         git.execute(
             operation="add",
             repo_path=str(self.repo)
@@ -211,8 +237,16 @@ class CognitiveAgent:
         git.execute(
             operation="commit",
             repo_path=str(self.repo),
-            message="cognitive agent: autonomous engineering iteration"
+            message="cognitive agent: validated autonomous iteration"
         )
+
+        git.execute(
+            operation="push",
+            repo_path=str(self.repo),
+            branch="main"
+        )
+
+        return {"status": "committed_and_pushed"}
 
     # -----------------------------
     # UTIL
