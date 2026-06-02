@@ -1,175 +1,124 @@
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional
 import traceback
-import re
 
 
 @dataclass
-class RewriteState:
-    objective: str
-    success: bool = False
-    last_error: str | None = None
-    rewrites: int = 0
-    history: list[dict] = None
-
-    def __post_init__(self):
-        if self.history is None:
-            self.history = []
+class ExecutionTrace:
+    tool: str
+    args: Dict[str, Any]
+    success: bool
+    result: Any = None
+    error: str = ""
+    rewritten: bool = False
 
 
 class SelfRewritingEngine:
+    """
+    v3 execution layer:
+    - executes plans
+    - observes failures
+    - rewrites execution strategy
+    - retries intelligently
+    """
 
-    def __init__(self, runtime):
+    def __init__(self, runtime, agent):
         self.runtime = runtime
-        self.repo_path = Path("C:\\ProgramasGodMode\\DGM-HUB")
+        self.agent = agent
+        self.trace: List[ExecutionTrace] = []
 
     # -----------------------------
     # MAIN LOOP
     # -----------------------------
-    def run(self, objective: str, max_cycles: int = 4):
+    def run(self, objective: str, max_iterations: int = 5):
 
-        state = RewriteState(objective=objective)
+        plan = self.agent.plan(objective)
 
-        for cycle in range(max_cycles):
+        for i in range(max_iterations):
+
+            tool_name = plan["tool"]
+            args = plan.get("args", {})
 
             try:
-                result = self._execute(objective)
+                tool = self.runtime.registry.get(tool_name)
 
-                state.history.append({
-                    "cycle": cycle,
-                    "result": self._safe(result)
-                })
+                if tool is None:
+                    raise Exception(f"Tool not found: {tool_name}")
 
-                if self._is_success(result):
-                    state.success = True
-                    break
+                # CONTRACT LAYER RESOLUTION
+                resolved_args = self.runtime.contract_layer.resolve(tool_name, args)
+                result = tool.execute(**resolved_args)
 
-            except Exception:
-                error = traceback.format_exc()
-                state.last_error = error
+                self.trace.append(
+                    ExecutionTrace(
+                        tool=tool_name,
+                        args=resolved_args,
+                        success=True,
+                        result=result
+                    )
+                )
 
-                file_path = self._infer_file(error)
+                return {
+                    "success": True,
+                    "result": result,
+                    "trace": self.trace
+                }
 
-                if file_path:
-                    before = self._read_file(file_path)
-                    after = self._rewrite(before, error)
+            except Exception as e:
 
-                    self._write_file(file_path, after)
+                error_msg = traceback.format_exc()
 
-                    state.rewrites += 1
+                self.trace.append(
+                    ExecutionTrace(
+                        tool=tool_name,
+                        args=args,
+                        success=False,
+                        error=error_msg
+                    )
+                )
 
-                    state.history.append({
-                        "cycle": cycle,
-                        "file": file_path,
-                        "patched": True
-                    })
+                # -------------------------
+                # REWRITE DECISION
+                # -------------------------
+                plan = self._rewrite_plan(
+                    objective,
+                    plan,
+                    error_msg
+                )
 
-        # commit final
-        if state.success:
-            self._commit()
-
-        return state
-
-    # -----------------------------
-    # EXECUTION
-    # -----------------------------
-    def _execute(self, objective: str):
-
-        obj = objective.lower()
-
-        if "git" in obj:
-            return self.runtime.registry.get("git").execute(
-                operation="status",
-                repo_path=str(self.repo_path)
-            )
-
-        if "repo" in obj:
-            return self.runtime.registry.get("repo").execute(
-                operation="tree",
-                repo_path=str(self.repo_path)
-            )
-
-        return {"status": "unknown objective"}
+        return {
+            "success": False,
+            "trace": self.trace
+        }
 
     # -----------------------------
-    # FILE INFERENCE (CRITICAL PART)
+    # CORE REWRITER
     # -----------------------------
-    def _infer_file(self, error: str):
+    def _rewrite_plan(self, objective, plan, error):
 
-        # module errors
-        match = re.search(r"No module named ['\"](.+?)['\"]", error)
-        if match:
-            module = match.group(1)
-            return self.repo_path / "src" / module.replace(".", "/") + ".py"
+        tool = plan["tool"]
 
-        # runtime errors pointing to file
-        match = re.search(r'File "(.+?\.py)"', error)
-        if match:
-            return Path(match.group(1))
+        # SIMPLE HEURISTICS (v3 baseline brain)
 
-        return None
+        if "missing" in error.lower():
+            plan["args"] = plan.get("args", {})
+            plan["args"]["repo_path"] = str(self.runtime.root_path)
 
-    # -----------------------------
-    # REWRITE ENGINE (SAFE PATCH ONLY)
-    # -----------------------------
-    def _rewrite(self, code: str, error: str):
+        elif "not found" in error.lower():
+            plan["tool"] = "cmd"
+            plan["args"] = {"command": "echo fallback execution"}
 
-        err = error.lower()
+        elif "TypeError" in error:
+            plan["args"] = {}
 
-        # FIX 1: missing import
-        if "modulenotfounderror" in err:
-            match = re.search(r"No module named ['\"](.+?)['\"]", error)
-            if match:
-                mod = match.group(1)
-                return f"import {mod}\n\n" + code
+        elif "permission" in error.lower():
+            plan["tool"] = "audit"
+            plan["args"] = {"action": "check_permissions"}
 
-        # FIX 2: simple syntax error fallback
-        if "syntaxerror" in err:
-            return code.replace("\t", "    ")
+        else:
+            plan["tool"] = "cmd"
+            plan["args"] = {"command": "echo unknown failure recovery"}
 
-        # FIX 3: fallback no-op
-        return code
+        plan["rewritten"] = True
 
-    # -----------------------------
-    # FILE IO
-    # -----------------------------
-    def _read_file(self, path: Path):
-        return path.read_text(encoding="utf-8", errors="replace")
-
-    def _write_file(self, path: Path, content: str):
-        path.write_text(content, encoding="utf-8")
-
-    # -----------------------------
-    # GIT COMMIT
-    # -----------------------------
-    def _commit(self):
-
-        git = self.runtime.registry.get("git")
-
-        git.execute(
-            operation="add",
-            repo_path=str(self.repo_path)
-        )
-
-        git.execute(
-            operation="commit",
-            repo_path=str(self.repo_path),
-            message="auto-rewrite: self-healing code patch"
-        )
-
-    # -----------------------------
-    # SUCCESS CHECK
-    # -----------------------------
-    def _is_success(self, result: Any):
-
-        if isinstance(result, dict):
-            return "error" not in result and "traceback" not in result
-
-        return True
-
-    def _safe(self, result: Any):
-        try:
-            return str(result)[:500]
-        except:
-            return "unserializable"
+        return plan
