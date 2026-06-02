@@ -5,7 +5,7 @@ from dgm_hub.core.bootstrap import build_runtime
 
 from dgm_hub.mcp.server import MCPServer
 
-from dgm_hub.agent.autonomous_dev import AutonomousDevEngine
+from dgm_hub.agent.architect_mode import ArchitectEngine
 
 
 def main():
@@ -24,21 +24,23 @@ def main():
     server.start()
 
     # -----------------------------
-    # FULL AUTONOMOUS DEV LOOP
+    # ARCHITECT MODE
     # -----------------------------
-    engine = AutonomousDevEngine(runtime)
+    architect = ArchitectEngine(runtime)
 
-    state = engine.run("git status check")
+    state = architect.run("full system audit")
 
     print("\n==============================")
-    print("FULL AUTONOMOUS DEV RESULT")
+    print("ARCHITECT MODE RESULT")
     print("==============================")
     print("SUCCESS:", state.success)
-    print("ERROR:", state.last_error)
     print("FIXES:", state.fixes)
-    print("CYCLES:", len(state.history))
+    print("ERRORS:", len(state.errors))
 
-    print("\n--- TRACE ---")
+    print("\nPLAN:")
+    print(state.plan)
+
+    print("\nHISTORY:")
     for h in state.history:
         print(h)
 
