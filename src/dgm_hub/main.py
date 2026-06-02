@@ -4,7 +4,8 @@ from dgm_hub.core.config import ConfigLoader
 from dgm_hub.core.bootstrap import build_runtime
 
 from dgm_hub.mcp.server import MCPServer
-from dgm_hub.agent.engine import AgentEngine
+
+from dgm_hub.agent.autonomous_dev import AutonomousDevEngine
 
 
 def main():
@@ -22,14 +23,24 @@ def main():
     server = MCPServer(runtime)
     server.start()
 
-    # -------------------------
-    # AGENT LOOP TEST (NEW)
-    # -------------------------
-    agent = AgentEngine(runtime)
+    # -----------------------------
+    # FULL AUTONOMOUS DEV LOOP
+    # -----------------------------
+    engine = AutonomousDevEngine(runtime)
 
-    state = agent.run("git status check")
+    state = engine.run("git status check")
 
-    print(state)
+    print("\n==============================")
+    print("FULL AUTONOMOUS DEV RESULT")
+    print("==============================")
+    print("SUCCESS:", state.success)
+    print("ERROR:", state.last_error)
+    print("FIXES:", state.fixes)
+    print("CYCLES:", len(state.history))
+
+    print("\n--- TRACE ---")
+    for h in state.history:
+        print(h)
 
 
 if __name__ == "__main__":
