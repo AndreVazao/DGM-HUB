@@ -18,7 +18,7 @@ def build_runtime(config: dict):
     )
 
     runtime.registry.register(
-        FilesystemTool(guard)
+        FilesystemTool()
     )
 
     runtime.registry.register(
@@ -30,7 +30,7 @@ def build_runtime(config: dict):
     )
 
     runtime.registry.register(
-        RepoTool(guard)
+        RepoTool()
     )
 
     runtime.registry.register(
