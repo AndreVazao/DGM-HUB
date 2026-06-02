@@ -1,0 +1,2017 @@
+[
+  {
+    "objective": "Verify system tree",
+    "success": false,
+    "result": {
+      "success": false,
+      "trace": [
+        {
+          "tool": "repo",
+          "args": {
+            "operation": "tree"
+          },
+          "success": false,
+          "result": null,
+          "error": "Traceback (most recent call last):\n  File \"/app/src/dgm_hub/agent/self_rewriting_engine.py\", line 46, in run\n    raise Exception(f\"Tool not found: {tool_name}\")\nException: Tool not found: repo\n",
+          "rewritten": false
+        },
+        {
+          "tool": "cmd",
+          "args": {
+            "command": "echo fallback execution"
+          },
+          "success": false,
+          "result": null,
+          "error": "Traceback (most recent call last):\n  File \"/app/src/dgm_hub/agent/self_rewriting_engine.py\", line 46, in run\n    raise Exception(f\"Tool not found: {tool_name}\")\nException: Tool not found: cmd\n",
+          "rewritten": false
+        },
+        {
+          "tool": "cmd",
+          "args": {
+            "command": "echo fallback execution"
+          },
+          "success": false,
+          "result": null,
+          "error": "Traceback (most recent call last):\n  File \"/app/src/dgm_hub/agent/self_rewriting_engine.py\", line 46, in run\n    raise Exception(f\"Tool not found: {tool_name}\")\nException: Tool not found: cmd\n",
+          "rewritten": false
+        },
+        {
+          "tool": "cmd",
+          "args": {
+            "command": "echo fallback execution"
+          },
+          "success": false,
+          "result": null,
+          "error": "Traceback (most recent call last):\n  File \"/app/src/dgm_hub/agent/self_rewriting_engine.py\", line 46, in run\n    raise Exception(f\"Tool not found: {tool_name}\")\nException: Tool not found: cmd\n",
+          "rewritten": false
+        },
+        {
+          "tool": "cmd",
+          "args": {
+            "command": "echo fallback execution"
+          },
+          "success": false,
+          "result": null,
+          "error": "Traceback (most recent call last):\n  File \"/app/src/dgm_hub/agent/self_rewriting_engine.py\", line 46, in run\n    raise Exception(f\"Tool not found: {tool_name}\")\nException: Tool not found: cmd\n",
+          "rewritten": false
+        }
+      ]
+    }
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "Verify system tree",
+    "success": true,
+    "result": {
+      "success": true,
+      "result": {
+        "root": "/app",
+        "tree": {
+          "name": "app",
+          "type": "dir",
+          "children": [
+            {
+              "name": ".gitignore",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "DGM-HUB_TREE.txt",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "README.md",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "config",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "default_config.yaml",
+                  "type": "file",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "docs",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "ARCHITECTURE.md",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "PROJECT_CONTEXT.md",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "context",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "agent_memory.json",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "runtime_state.md",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "pyproject.toml",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "run_agent.py",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "run_cognitive_agent.py",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "run_task.py",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "runtime",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "backups",
+                  "type": "dir",
+                  "children": []
+                },
+                {
+                  "name": "memory.json",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "tasks",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "9e7a9534.json",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "src",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "dgm_hub",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "__init__.py",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "agent",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "active_patch_engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "architect_mode.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "auto_dev.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "autonomous_dev.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "cognitive_engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_loop.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_orchestrator.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_to_patch.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "governor.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "self_repair.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "self_rewriting_engine.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "bridge",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "agent_client.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "server.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "control",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "manager.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "queue.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "task.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "task_graph.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "tool_contract_layer.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "worker.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "core",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "bootstrap.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "config.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "runtime.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "execution",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "command_runner.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "main.py",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "mcp",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "router.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "server.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "memory",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "execution_memory.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "vault.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "security",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "approval.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "audit.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_guard.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "patch_authority.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "path_guard.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "swarm",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "agent_node.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "coordinator.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "debate_engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "role_types.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "swarm_coordinator.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "swarm_loop.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "voting_system.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "worker_node.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "tools",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "base.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "cmd_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "filesystem_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "git_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "manager.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "powershell_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "registry.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "repo_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "test_runner.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "verify_civilization.py",
+              "type": "file",
+              "children": []
+            }
+          ]
+        },
+        "summary": {
+          "files": 69,
+          "directories": 19
+        }
+      },
+      "trace": [
+        {
+          "tool": "repo",
+          "args": {
+            "operation": "tree",
+            "repo_path": "/app"
+          },
+          "success": true,
+          "result": {
+            "root": "/app",
+            "tree": {
+              "name": "app",
+              "type": "dir",
+              "children": [
+                {
+                  "name": ".gitignore",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "DGM-HUB_TREE.txt",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "README.md",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "config",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "default_config.yaml",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "name": "docs",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "ARCHITECTURE.md",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "PROJECT_CONTEXT.md",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "context",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "agent_memory.json",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "runtime_state.md",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "pyproject.toml",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "run_agent.py",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "run_cognitive_agent.py",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "run_task.py",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "runtime",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "backups",
+                      "type": "dir",
+                      "children": []
+                    },
+                    {
+                      "name": "memory.json",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "tasks",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "9e7a9534.json",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "src",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "dgm_hub",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "agent",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "__init__.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "active_patch_engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "architect_mode.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "auto_dev.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "autonomous_dev.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "cognitive_engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_loop.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_orchestrator.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_to_patch.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "governor.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "self_repair.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "self_rewriting_engine.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "bridge",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "__init__.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "agent_client.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "server.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "control",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "manager.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "queue.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "task.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "task_graph.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "tool_contract_layer.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "worker.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "core",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "bootstrap.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "config.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "runtime.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "execution",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "command_runner.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "main.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "mcp",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "router.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "server.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "memory",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "execution_memory.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "vault.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "security",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "approval.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "audit.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_guard.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "patch_authority.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "path_guard.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "swarm",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "agent_node.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "coordinator.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "debate_engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "role_types.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "swarm_coordinator.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "swarm_loop.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "voting_system.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "worker_node.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "tools",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "base.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "cmd_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "filesystem_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "git_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "manager.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "powershell_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "registry.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "repo_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "test_runner.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "verify_civilization.py",
+                  "type": "file",
+                  "children": []
+                }
+              ]
+            },
+            "summary": {
+              "files": 69,
+              "directories": 19
+            }
+          },
+          "error": "",
+          "rewritten": false
+        }
+      ]
+    }
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "Verify system tree",
+    "success": true,
+    "result": {
+      "success": true,
+      "result": {
+        "root": "/app",
+        "tree": {
+          "name": "app",
+          "type": "dir",
+          "children": [
+            {
+              "name": ".gitignore",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "DGM-HUB_TREE.txt",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "README.md",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "config",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "default_config.yaml",
+                  "type": "file",
+                  "children": []
+                }
+              ]
+            },
+            {
+              "name": "docs",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "ARCHITECTURE.md",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "PROJECT_CONTEXT.md",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "context",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "agent_memory.json",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "runtime_state.md",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "pyproject.toml",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "run_agent.py",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "run_cognitive_agent.py",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "run_task.py",
+              "type": "file",
+              "children": []
+            },
+            {
+              "name": "runtime",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "backups",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "58cc2111a03217825186ee2945c5fc93750a6437df72aab67a2eeec88799638d.json",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "5e15c5462ca0b54db0979395efeacd7ddfe97f0b1e2abb0fa45e1c7e378542ec.json",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "name": "memory.json",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "tasks",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "9e7a9534.json",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "src",
+              "type": "dir",
+              "children": [
+                {
+                  "name": "dgm_hub",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "__init__.py",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "agent",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "active_patch_engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "architect_mode.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "auto_dev.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "autonomous_dev.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "cognitive_engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_loop.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_orchestrator.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_to_patch.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "governor.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "self_repair.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "self_rewriting_engine.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "bridge",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "agent_client.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "server.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "control",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "manager.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "queue.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "task.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "task_graph.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "tool_contract_layer.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "worker.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "core",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "bootstrap.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "config.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "runtime.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "execution",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "command_runner.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "main.py",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "mcp",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "router.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "server.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "memory",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "execution_memory.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "vault.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "security",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "approval.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "audit.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "evolution_guard.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "patch_authority.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "path_guard.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "swarm",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "agent_node.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "coordinator.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "debate_engine.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "role_types.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "swarm_coordinator.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "swarm_loop.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "voting_system.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "worker_node.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "tools",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "base.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "cmd_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "filesystem_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "git_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "manager.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "powershell_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "registry.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "repo_tool.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "test_runner.py",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "name": "verify_civilization.py",
+              "type": "file",
+              "children": []
+            }
+          ]
+        },
+        "summary": {
+          "files": 71,
+          "directories": 19
+        }
+      },
+      "trace": [
+        {
+          "tool": "repo",
+          "args": {
+            "operation": "tree",
+            "repo_path": "/app"
+          },
+          "success": true,
+          "result": {
+            "root": "/app",
+            "tree": {
+              "name": "app",
+              "type": "dir",
+              "children": [
+                {
+                  "name": ".gitignore",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "DGM-HUB_TREE.txt",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "README.md",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "config",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "default_config.yaml",
+                      "type": "file",
+                      "children": []
+                    }
+                  ]
+                },
+                {
+                  "name": "docs",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "ARCHITECTURE.md",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "PROJECT_CONTEXT.md",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "context",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "agent_memory.json",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "runtime_state.md",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "pyproject.toml",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "run_agent.py",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "run_cognitive_agent.py",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "run_task.py",
+                  "type": "file",
+                  "children": []
+                },
+                {
+                  "name": "runtime",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "backups",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "58cc2111a03217825186ee2945c5fc93750a6437df72aab67a2eeec88799638d.json",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "5e15c5462ca0b54db0979395efeacd7ddfe97f0b1e2abb0fa45e1c7e378542ec.json",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    },
+                    {
+                      "name": "memory.json",
+                      "type": "file",
+                      "children": []
+                    },
+                    {
+                      "name": "tasks",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "9e7a9534.json",
+                          "type": "file",
+                          "children": []
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "src",
+                  "type": "dir",
+                  "children": [
+                    {
+                      "name": "dgm_hub",
+                      "type": "dir",
+                      "children": [
+                        {
+                          "name": "__init__.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "agent",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "__init__.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "active_patch_engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "architect_mode.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "auto_dev.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "autonomous_dev.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "cognitive_engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_loop.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_orchestrator.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_to_patch.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "governor.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "self_repair.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "self_rewriting_engine.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "bridge",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "__init__.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "agent_client.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "server.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "control",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "manager.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "queue.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "task.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "task_graph.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "tool_contract_layer.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "worker.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "core",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "bootstrap.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "config.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "runtime.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "execution",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "command_runner.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "main.py",
+                          "type": "file",
+                          "children": []
+                        },
+                        {
+                          "name": "mcp",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "router.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "server.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "memory",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "execution_memory.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "vault.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "security",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "approval.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "audit.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "evolution_guard.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "patch_authority.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "path_guard.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "swarm",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "agent_node.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "coordinator.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "debate_engine.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "role_types.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "swarm_coordinator.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "swarm_loop.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "voting_system.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "worker_node.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        },
+                        {
+                          "name": "tools",
+                          "type": "dir",
+                          "children": [
+                            {
+                              "name": "base.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "cmd_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "filesystem_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "git_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "manager.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "powershell_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "registry.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "repo_tool.py",
+                              "type": "file",
+                              "children": []
+                            },
+                            {
+                              "name": "test_runner.py",
+                              "type": "file",
+                              "children": []
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "name": "verify_civilization.py",
+                  "type": "file",
+                  "children": []
+                }
+              ]
+            },
+            "summary": {
+              "files": 71,
+              "directories": 19
+            }
+          },
+          "error": "",
+          "rewritten": false
+        }
+      ]
+    }
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  },
+  {
+    "objective": "fail_task",
+    "success": false
+  }
+]
