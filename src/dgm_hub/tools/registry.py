@@ -1,12 +1,11 @@
-from .base import Tool
-
+from typing import Any
 
 class ToolRegistry:
     def __init__(self):
-        self._tools: dict[str, Tool] = {}
+        self._tools: dict[str, Any] = {}
 
-    def register(self, tool: Tool):
-        self._tools[tool.name] = tool
+    def register(self, name: str, tool: Any):
+        self._tools[name] = tool
 
     def get(self, name: str):
         return self._tools.get(name)
