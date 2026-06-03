@@ -1,54 +1,101 @@
 # DGM-HUB
 
-DGM-HUB (Devop God Mode Hub) is a local AI development gateway designed to expose controlled local capabilities to AI systems through tools.
+DGM-HUB (Devop God Mode Hub) is a local semi-autonomous software engineering runtime designed to transform conversations into controlled execution workflows.
 
-## Initial Goals
+## Vision
 
-- Local MCP server
-- Repo management
-- PowerShell/CMD execution
-- Test execution
-- Local persistent memory integration
-- Git automation
-- Security and audit logs
+Conversation
+↓
+Planner / Task Creation
+↓
+DGM-HUB Runtime
+↓
+Execution + Logs + Memory
+↓
+Human Approval
+↓
+Continuous Improvement
 
-## Initial Constraints
+## Current Goals
 
-- Minimal-first architecture
-- Windows-first
-- Low resource usage
-- Headless operation
-- Whitelisted filesystem access
+- Persistent local engineering runtime
+- Task driven execution engine
+- Controlled tool exposure
+- Multi-agent orchestration
+- Memory and execution history
+- Human approval gates
+- Reproducible software workflows
 
-## Status
+## Design Rules
 
-Architecture phase
+- No fake autonomy
+- No silent self modification
+- Approval gates for important changes
+- Reliability over complexity
+- Logs over assumptions
 
-## COMO USAR AGORA🚀
+## Current Architecture
 
-.📌 Árvore estruturada
-{
-  "tool": "repo",
-  "args": {
-    "operation": "tree",
-    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
-  }
-}
+```text
+DGM-HUB/
+├── config/
+├── docs/
+├── runtime/
+├── src/dgm_hub/
+│   ├── agent/
+│   ├── bridge/
+│   ├── control/
+│   ├── core/
+│   ├── execution/
+│   ├── mcp/
+│   ├── memory/
+│   ├── security/
+│   └── tools/
+└── main.py
+```
 
-.📌 JSON (para IA futura)
-{
-  "tool": "repo",
-  "args": {
-    "operation": "json",
-    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
-  }
-}
+More detailed structure:
 
--📌 Markdown (rápido para ler)
-{
-  "tool": "repo",
-  "args": {
-    "operation": "markdown",
-    "repo_path": "C:\\ProgramasGodMode\\DGM-HUB"
-  }
-}
+See TREE.md
+
+## Current Workflow
+
+Terminal 1:
+
+```bash
+python -m dgm_hub.main
+```
+
+Terminal 2:
+
+```bash
+python run_task.py "objective"
+```
+
+Operational loop:
+
+User → Tasks → Execution → Logs → Improvements → Human approval
+
+## Current Status
+
+Working:
+
+- Runtime bootstrap
+- Tool registry
+- Worker loop
+- Task queue
+- Repository inspection
+- Local execution flow
+
+In progress:
+
+- Planner improvements
+- Validation layer
+- Automated testing pipeline
+- Failure classification
+- Memory retrieval
+- Evolution engine
+
+## Long Term Objective
+
+Build a real semi-autonomous engineering platform that executes safely under human direction.
