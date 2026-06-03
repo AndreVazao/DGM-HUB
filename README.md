@@ -1,40 +1,45 @@
 # DGM-HUB
 
-DGM-HUB (Devop God Mode Hub) is a local semi-autonomous software engineering runtime designed to transform conversations into controlled execution workflows.
+DGM-HUB is a local engineering runtime designed to allow conversation driven software development on authorized local environments.
 
-## Vision
+## Goal
 
-Conversation
+Create a local runtime capable of turning conversations into controlled local engineering workflows.
+
+```text
+ChatGPT
 ↓
-Planner / Task Creation
+Bridge / MCP
 ↓
-DGM-HUB Runtime
+Local Runtime
 ↓
-Execution + Logs + Memory
+Tools
 ↓
-Human Approval
+Execution
 ↓
-Continuous Improvement
+Logs + Patch proposals
+↓
+Approval
+```
 
-## Current Goals
+## What DGM-HUB Should Do
 
-- Persistent local engineering runtime
-- Task driven execution engine
-- Controlled tool exposure
-- Multi-agent orchestration
-- Memory and execution history
-- Human approval gates
-- Reproducible software workflows
+- inspect repositories
+- read files
+- modify code safely
+- execute commands
+- run tests
+- generate patches
+- return logs/results
 
-## Design Rules
+## What DGM-HUB Is Not
 
-- No fake autonomy
-- No silent self modification
-- Approval gates for important changes
-- Reliability over complexity
-- Logs over assumptions
+- AGI project
+- full computer automation
+- unrestricted autonomy
+- silent code rewriting
 
-## Current Architecture
+## Architecture
 
 ```text
 DGM-HUB/
@@ -42,60 +47,68 @@ DGM-HUB/
 ├── docs/
 ├── runtime/
 ├── src/dgm_hub/
-│   ├── agent/
 │   ├── bridge/
 │   ├── control/
-│   ├── core/
 │   ├── execution/
-│   ├── mcp/
 │   ├── memory/
 │   ├── security/
 │   └── tools/
-└── main.py
+├── run_task.py
+├── main.py
+└── README.md
 ```
 
-More detailed structure:
+## Current Working Pieces
 
-See TREE.md
+- runtime bootstrap
+- worker loop
+- task execution
+- tool registry
+- repo inspection
+- git integration
+- command execution
 
-## Current Workflow
+## Next Priorities
 
-Terminal 1:
+1. Tool contracts
+2. Permission sandbox
+3. Patch workflow
+4. Test pipeline
+5. Structured logs
+6. Better repository context
 
-```bash
-python -m dgm_hub.main
+## Desired Workflow
+
+```text
+Request
+↓
+Inspect
+↓
+Execute
+↓
+Propose patch
+↓
+Approval
+↓
+Apply
+↓
+Test
+↓
+Results
 ```
 
-Terminal 2:
+## Success Condition
 
-```bash
-python run_task.py "objective"
-```
+User:
 
-Operational loop:
+"fix this project"
 
-User → Tasks → Execution → Logs → Improvements → Human approval
+Hub:
 
-## Current Status
-
-Working:
-
-- Runtime bootstrap
-- Tool registry
-- Worker loop
-- Task queue
-- Repository inspection
-- Local execution flow
-
-In progress:
-
-- Planner improvements
-- Validation layer
-- Automated testing pipeline
-- Failure classification
-- Memory retrieval
-- Evolution engine
-
-## Long Term Objective
-
-Build a real semi-autonomous engineering platform that executes safely under human direction.
+inspect repository
+run tests
+modify safely
+show patch
+apply
+retest
+return results
