@@ -3,9 +3,9 @@ from dgm_hub.control.task_executor import TaskExecutor
 
 class RuntimeSession:
 
-    def __init__(self):
+    def __init__(self, repository_path: str = "."):
 
-        self.executor = TaskExecutor()
+        self.executor = TaskExecutor(repository_path=repository_path)
 
     def inspect(
         self,
