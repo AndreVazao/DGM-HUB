@@ -1,51 +1,14 @@
-import json
-
+from fastapi import FastAPI
 from dgm_hub.mcp.router import MCPRouter
+from dgm_hub.mcp.protocol import MCPRequest, MCPResponse
 
+app = FastAPI(title="DGM-HUB MCP")
+router = MCPRouter()
 
-class MCPServer:
+@app.post("/mcp")
+def run_mcp(request: MCPRequest) -> MCPResponse:
+    return router.dispatch(request)
 
-    def __init__(self, runtime):
-
-        self.runtime = runtime
-        self.router = MCPRouter(runtime)
-
-    def start(self):
-
-        print("DGM-HUB MCP server started")
-
-        while True:
-
-            try:
-
-                raw = input()
-
-                if not raw:
-                    continue
-
-                payload = json.loads(raw)
-
-                result = self.router.dispatch(
-                    payload["tool"],
-                    payload.get("args", {})
-                )
-
-                print(
-                    json.dumps(
-                        result,
-                        ensure_ascii=False,
-                        default=str
-                    )
-                )
-
-            except KeyboardInterrupt:
-                break
-
-            except Exception as e:
-
-                # NÃO expor stack trace ao utilizador
-                print(
-                    json.dumps({
-                        "error": str(e)
-                    })
-                )
+@app.get("/health")
+def health():
+    return {"status": "ok"}

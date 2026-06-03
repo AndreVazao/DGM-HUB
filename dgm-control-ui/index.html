@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DGM Control Center</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; }
+        .modal { border: 1px solid #ccc; padding: 20px; border-radius: 8px; max-width: 600px; margin: auto; }
+        pre { background: #f4f4f4; padding: 10px; overflow: auto; }
+        button { padding: 10px 20px; cursor: pointer; }
+        .approve { background: #4CAF50; color: white; border: none; }
+        .reject { background: #f44336; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <div id="plan" class="modal" style="display:none;">
+        <h2>AI Execution Request</h2>
+        <h3 id="title"></h3>
+        <pre id="summary"></pre>
+        <div id="actions"></div>
+        <div id="risk"></div>
+        <br>
+        <button class="approve" onclick="approve()">APPROVE</button>
+        <button class="reject" onclick="reject()">REJECT</button>
+    </div>
+
+    <script>
+        let currentPlan = null;
+        const socket = new WebSocket("ws://localhost:8000/ws");
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            if (data.type === "plan_created") {
+                currentPlan = data.plan;
+                loadPlan(currentPlan);
+            }
+        };
+
+        function loadPlan(plan) {
+            document.getElementById("plan").style.display = "block";
+            document.getElementById("title").innerText = plan.title;
+            document.getElementById("summary").innerText = plan.summary;
+            document.getElementById("actions").innerText = JSON.stringify(plan.actions, null, 2);
+            document.getElementById("risk").innerText = "RISK: " + plan.risk;
+        }
+
+        async function approve() {
+            await fetch("http://localhost:8000/approve/" + currentPlan.id, {
+                method: "POST"
+            });
+            alert("EXECUTED");
+            document.getElementById("plan").style.display = "none";
+        }
+
+        async function reject() {
+            await fetch("http://localhost:8000/reject/" + currentPlan.id, {
+                method: "POST"
+            });
+            alert("CANCELLED");
+            document.getElementById("plan").style.display = "none";
+        }
+    </script>
+</body>
+</html>
