@@ -1,0 +1,2 @@
+{"type": "plan", "id": "test-plan-1", "title": "Test Plan", "summary": "A simple test plan", "risk": "low", "actions": [{"type": "run_command", "payload": {"cmd": "echo 'Hello World'"}}], "timestamp": "2026-06-03 18:56:22.862889+00:00"}
+{"type": "result", "plan_id": "test-plan-1", "result": {"results": [{"action": "run_command", "status": "ok"}]}, "timestamp": "2026-06-03 18:56:22.865073+00:00"}
