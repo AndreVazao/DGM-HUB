@@ -1,0 +1,16 @@
+DGM HUB TREE
+
+config
+ permissions.yaml
+
+src dgm_hub
+ control
+  approval_workflow.py
+ execution
+  patch_proposal.py
+  test_pipeline.py
+ security
+  permissions.py
+ tools
+  contracts.py
+  filesystem_guard.py
