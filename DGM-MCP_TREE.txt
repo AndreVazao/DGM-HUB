@@ -87,6 +87,7 @@ DGM-HUB/
 ├─ .gitignore
 ├─ DGM-HUB_CONTEXT.md
 ├─ DGM-HUB_TREE.txt
+├─ DGM-MCP_TREE.txt
 ├─ logs.txt
 ├─ pyproject.toml
 ├─ README.md
