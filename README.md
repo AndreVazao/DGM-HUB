@@ -1,114 +1,38 @@
-# DGM-HUB
+# DGM-HUB: Local AI Development Gateway
 
-DGM-HUB is a local engineering runtime designed to allow conversation driven software development on authorized local environments.
+DGM-HUB is a modular architecture for autonomous code development and debugging.
 
-## Goal
+## Core Architecture
 
-Create a local runtime capable of turning conversations into controlled local engineering workflows.
+The system follows a unified execution path:
 
-```text
-ChatGPT
-↓
-Bridge / MCP
-↓
-Local Runtime
-↓
-Tools
-↓
-Execution
-↓
-Logs + Patch proposals
-↓
-Approval
+**Task** -> **RuntimeSession** -> **TaskExecutor** -> **WorkflowRuntime** -> **UnifiedToolManager** -> **TestPipeline** -> **History**
+
+### Features
+
+- **Unified Execution Path**: A single entry point for all agent tasks.
+- **Context-Aware Tooling**: The `ToolReasoner` decides which tools to run based on the repository state.
+- **Autonomous Debug Loop**:
+    1. Run tests.
+    2. Parse failures using `ErrorAnalyzer`.
+    3. Load real code with `FileLoader`.
+    4. Generate targeted fixes with `PatchIntelligenceEngine`.
+    5. Orchestrate application with `PatchOrchestrator`.
+
+### Usage
+
+The main entry point for agent operations is the `AgentLoop`:
+
+```python
+from dgm_hub.agent.agent_loop import AgentLoop
+
+agent = AgentLoop()
+result = agent.run(
+    repository_path="./my-repo",
+    test_command="pytest"
+)
 ```
 
-## What DGM-HUB Should Do
+## Project Structure
 
-- inspect repositories
-- read files
-- modify code safely
-- execute commands
-- run tests
-- generate patches
-- return logs/results
-
-## What DGM-HUB Is Not
-
-- AGI project
-- full computer automation
-- unrestricted autonomy
-- silent code rewriting
-
-## Architecture
-
-```text
-DGM-HUB/
-├── config/
-├── docs/
-├── runtime/
-├── src/dgm_hub/
-│   ├── bridge/
-│   ├── control/
-│   ├── execution/
-│   ├── memory/
-│   ├── security/
-│   └── tools/
-├── run_task.py
-├── main.py
-└── README.md
-```
-
-## Current Working Pieces
-
-- runtime bootstrap
-- worker loop
-- task execution
-- tool registry
-- repo inspection
-- git integration
-- command execution
-
-## Next Priorities
-
-1. Tool contracts
-2. Permission sandbox
-3. Patch workflow
-4. Test pipeline
-5. Structured logs
-6. Better repository context
-
-## Desired Workflow
-
-```text
-Request
-↓
-Inspect
-↓
-Execute
-↓
-Propose patch
-↓
-Approval
-↓
-Apply
-↓
-Test
-↓
-Results
-```
-
-## Success Condition
-
-User:
-
-"fix this project"
-
-Hub:
-
-inspect repository
-run tests
-modify safely
-show patch
-apply
-retest
-return results
+See [tree.md](tree.md) for a detailed view of the codebase.

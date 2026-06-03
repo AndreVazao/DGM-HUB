@@ -1,31 +1,28 @@
-from dgm_hub.control.workflow_runtime import WorkflowRuntime
-from dgm_hub.execution.execution_history import ExecutionHistory
+from dgm_hub.control.task_executor import TaskExecutor
 
 
 class RuntimeSession:
 
     def __init__(self):
-        self.runtime = WorkflowRuntime()
-        self.history = ExecutionHistory()
 
-    def inspect(self, path:str):
+        self.executor = TaskExecutor()
 
-        result = self.runtime.inspect_repository(path)
+    def inspect(
+        self,
+        path:str
+    ):
 
-        self.history.add(
-            action='inspect_repository',
-            success=True
+        return self.executor.execute(
+            repository_path=path
         )
 
-        return result
+    def execute_task(
+        self,
+        repository_path:str,
+        test_command:str|None=None
+    ):
 
-    def run_tests(self, command:str):
-
-        result = self.runtime.run_tests(command)
-
-        self.history.add(
-            action='run_tests',
-            success=result.success
+        return self.executor.execute(
+            repository_path=repository_path,
+            test_command=test_command
         )
-
-        return result
