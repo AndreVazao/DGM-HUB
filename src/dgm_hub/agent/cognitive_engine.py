@@ -1,6 +1,7 @@
 from dataclasses import dataclass, field
 from pathlib import Path
 import traceback
+from dgm_hub.evolution.evolution_engine import EvolutionEngine
 
 
 @dataclass
@@ -18,6 +19,7 @@ class CognitiveAgent:
     def __init__(self, runtime):
         self.runtime = runtime
         self.repo_root = str(Path.cwd())
+        self.evolution = EvolutionEngine()
 
     # ---------------------------------
     # MAIN LOOP
@@ -25,11 +27,14 @@ class CognitiveAgent:
     def run(self, objective: str, max_iterations=6):
 
         state = CognitiveState(objective=objective)
+        plan = None
 
         for iteration in range(max_iterations):
 
             try:
-                plan = self._plan(objective, state)
+                if plan is None:
+                    plan = self._plan(objective, state)
+
                 result = self._execute(plan)
 
                 state.steps.append({
@@ -39,9 +44,17 @@ class CognitiveAgent:
                 })
 
                 state.success = True
+
+                self.evolution.learn(
+                    objective,
+                    plan,
+                    True,
+                    result
+                )
+
                 return state
 
-            except Exception:
+            except Exception as e:
                 err = traceback.format_exc()
                 state.steps.append({
                     "iteration": iteration,
@@ -49,6 +62,20 @@ class CognitiveAgent:
                     "error": err
                 })
                 state.fixes += 1
+
+                self.evolution.learn(
+                    objective,
+                    plan,
+                    False,
+                    {
+                        "error": str(e)
+                    }
+                )
+
+                plan = self.evolution.evolve_plan(
+                    plan,
+                    True
+                )
 
         return state
 
