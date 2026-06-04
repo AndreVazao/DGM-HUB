@@ -28,3 +28,5 @@ Thumbs.db
 runtime/logs.jsonl
 runtime/telemetry.jsonl
 runtime/tasks/
+runtime/
+tests/real_world/work/

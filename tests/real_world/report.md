@@ -1,36 +1,62 @@
 # Real World Validation Report
 
-This report summarizes the execution of DGM-HUB against real-world repositories.
+## Reliability Metrics
 
-## Summary Statistics
+- **Total runs:** 25
+- **Successful runs:** 25
+- **Failed runs:** 0
+- **Crash Free %:** 100.0%
 
-- **Total Repositories:** 1
-- **Overall Success Rate:** 1/1 (100.0%)
-- **Crash Rate:** 0/1 (0.0%)
-- **Rollback Failures:** 0/1
+## Recovery Metrics
 
-## Detailed Results
+- **Rollback Success %:** 100.0%
+- **Rollback Average Time:** 0.006s
+- **Auto Recovery Success %:** 100.0%
+- **Unrecoverable Failures:** 0
+- **Human Intervention Count:** 0
+
+## Repository Hygiene
+
+- **Git Dirty after Execution?** No
+- **Leaked Files Count:** 0
+
+## Resource Metrics
+
+- **Peak Memory (approx):** 26.00 MB
+- **Average Memory Delta:** 0.11 MB
+
+## Stability Metrics
+
+- **P50 Runtime:** 1.49s
+- **P95 Runtime:** 20.78s
+- **Slowest Run:** 22.83s
+
+## Confidence Assessment
+
+**HIGH CONFIDENCE**
+
+## Top Failure Causes
+
+No failures recorded.
+
+## Per-Repository Breakdown
 
 ### small_python
+- Success: 5/5
+- Avg Time: 1.66s
 
-#### 1. Repository Scan
-- Time: 0.31s
-- Peak Memory: 0.02 MB
-- Journal Size: 0.00 KB
+### large_python
+- Success: 5/5
+- Avg Time: 1.18s
 
-#### 2. Run Tests
-- Time: 6.64s
-- Success: No
-- Patch Generated: No
+### node_js
+- Success: 5/5
+- Avg Time: 1.29s
 
-#### 3. Simple Task (Add Comment)
-- Time: 0.01s
-- Engine Success: Yes
-- Diff Correct: Yes
-- Rollback Works: Yes
+### mixed
+- Success: 5/5
+- Avg Time: 20.52s
 
-#### 4. Complex Task (Simulated Error Recovery)
-- Time: 5.73s
-- Recovery Success: No
-
----
+### legacy_problematic
+- Success: 5/5
+- Avg Time: 1.06s
