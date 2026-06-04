@@ -51,7 +51,8 @@ class AgentLoop:
             patch_result = None
             if execution.test_result and hasattr(execution.test_result, "success"):
                 if not execution.test_result.success:
-                    error = self.errors.parse(str(execution.test_result))
+                    test_output = getattr(execution.test_result, "output", str(execution.test_result))
+                    error = self.errors.parse(test_output)
                     if error.file:
                         code = self.files.read(error.file)
                         patch_result = self.patcher.execute_fix(

@@ -1,13 +1,12 @@
 allowed_paths:
-  - C:/ProgramasGodMode
-  - D:/Repos
+  - /app
+  - /tmp
 
 blocked_paths:
-  - C:/Windows
-  - C:/Users
+  - /etc
+  - /var
 
 execution:
   allow_shell: true
-  allow_powershell: true
-  require_approval_for_write: true
+  require_approval_for_write: false
   require_approval_for_delete: true
