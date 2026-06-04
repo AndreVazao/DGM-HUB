@@ -1,0 +1,98 @@
+PHASE 1
+
+Read:
+
+README.md
+
+DGM-HUB_CONTEXT.md
+
+docs/
+
+Analyse:
+
+- crashes
+- failing tests
+- suspicious components
+- runtime bottlenecks
+
+Return:
+
+SHORT REPORT
+
+
+-----------------------------
+
+PHASE 2
+
+Read generated logs.
+
+Find:
+
+- stack traces
+
+- failed tests
+
+- timeouts
+
+- memory problems
+
+Return:
+
+TOP 10 ISSUES
+
+
+-----------------------------
+
+PHASE 3
+
+DO NOT INVENT FEATURES
+
+ONLY:
+
+- fix failing tests
+
+- fix crashes
+
+- fix broken imports
+
+- fix runtime errors
+
+Return:
+
+FULL FILES ONLY
+
+
+-----------------------------
+
+PHASE 4
+
+After modifications:
+
+Run:
+
+pytest
+
+integration
+
+chaos
+
+real world validation
+
+Return:
+
+results only
+
+
+-----------------------------
+
+RULES
+
+never refactor architecture
+
+never create new systems
+
+never add abstractions
+
+prefer minimal changes
+
+output complete files
