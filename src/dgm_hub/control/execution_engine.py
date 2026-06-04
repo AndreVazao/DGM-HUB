@@ -3,6 +3,7 @@ import subprocess
 import sys
 
 from dgm_hub.security.policy_engine import PolicyEngine
+from dgm_hub.runtime.live_logger import LOGGER
 
 
 class ExecutionEngine:
@@ -28,7 +29,9 @@ class ExecutionEngine:
                     path = self._resolve_path(raw_path)
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_text(action.payload["content"], encoding="utf-8")
+                    LOGGER.log(f"Edited file: {raw_path}")
                 elif action.type in ["run_command", "git", "test"]:
+                    LOGGER.log(f"Executing {action.type}: {action.payload['cmd']}")
                     command_result = self._run_command(action.payload["cmd"])
                     if command_result["returncode"] != 0:
                         results.append({
@@ -53,6 +56,7 @@ class ExecutionEngine:
                         pass
                 else:
                     if hasattr(action, "payload") and "cmd" in action.payload:
+                        LOGGER.log(f"Executing {action.type}: {action.payload['cmd']}")
                         command_result = self._run_command(action.payload["cmd"])
                         if command_result["returncode"] != 0:
                             results.append({
@@ -101,10 +105,18 @@ class ExecutionEngine:
         proc = subprocess.Popen(command, **kwargs)
         try:
             stdout_bytes, stderr_bytes = proc.communicate(timeout=self.timeout_seconds)
+            stdout = stdout_bytes.decode("utf-8", errors="replace")
+            stderr = stderr_bytes.decode("utf-8", errors="replace")
+
+            if stdout:
+                LOGGER.log(stdout)
+            if stderr:
+                LOGGER.log(stderr)
+
             return {
                 "returncode": proc.returncode,
-                "stdout": stdout_bytes.decode("utf-8", errors="replace"),
-                "stderr": stderr_bytes.decode("utf-8", errors="replace"),
+                "stdout": stdout,
+                "stderr": stderr,
             }
         except subprocess.TimeoutExpired:
             # Kill the whole process group / tree on Windows
@@ -120,8 +132,17 @@ class ExecutionEngine:
                 stdout_bytes, stderr_bytes = proc.communicate(timeout=5)
             except Exception:
                 stdout_bytes, stderr_bytes = b"", b""
+
+            stdout = stdout_bytes.decode("utf-8", errors="replace")
+            stderr = stderr_bytes.decode("utf-8", errors="replace")
+
+            if stdout:
+                LOGGER.log(stdout)
+            if stderr:
+                LOGGER.log(stderr)
+
             return {
                 "returncode": -1,
-                "stdout": stdout_bytes.decode("utf-8", errors="replace"),
-                "stderr": f"Command timed out after {self.timeout_seconds}s",
+                "stdout": stdout,
+                "stderr": f"Command timed out after {self.timeout_seconds}s\n{stderr}",
             }
