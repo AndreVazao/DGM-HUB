@@ -1,0 +1,22 @@
+{
+  "small_python": {
+    "url": "https://github.com/bottlepy/bottle.git",
+    "test_command": "python -m unittest discover"
+  },
+  "large_python": {
+    "url": "https://github.com/psf/requests.git",
+    "test_command": "pytest"
+  },
+  "node_js": {
+    "url": "https://github.com/expressjs/express.git",
+    "test_command": "npm test"
+  },
+  "mixed": {
+    "url": "https://github.com/tiangolo/fastapi.git",
+    "test_command": "pytest"
+  },
+  "legacy_problematic": {
+    "url": "https://github.com/urllib3/urllib3.git",
+    "test_command": "pytest"
+  }
+}
