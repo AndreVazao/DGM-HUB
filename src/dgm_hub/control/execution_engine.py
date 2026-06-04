@@ -1,4 +1,4 @@
-﻿from pathlib import Path
+from pathlib import Path
 import subprocess
 import sys
 
@@ -39,6 +39,18 @@ class ExecutionEngine:
                         })
                         del command_result
                         continue
+                elif action.type == "internal_call":
+                    # Mock action for pure engine benchmarking. No subprocess is spawned.
+                    if action.payload.get("simulate_error"):
+                        results.append({
+                            "action": action.type,
+                            "status": "error",
+                            "error": "Simulated error"
+                        })
+                        continue
+                    else:
+                        # Just pass through to successful result
+                        pass
                 else:
                     if hasattr(action, "payload") and "cmd" in action.payload:
                         command_result = self._run_command(action.payload["cmd"])

@@ -1,0 +1,13 @@
+{
+  "startup_raw": {
+    "commands": 100,
+    "time_s": 26.876786299981177,
+    "latency_ms": 268.76786299981177
+  },
+  "execution_engine": {
+    "commands": 100,
+    "time_s": 49.92850740009453,
+    "latency_ms": 499.2850740009453,
+    "ok": 100
+  }
+}
