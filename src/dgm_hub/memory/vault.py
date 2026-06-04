@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class MemoryVault:
@@ -11,7 +11,7 @@ class MemoryVault:
 
     def write_event(self, event_type: str, data: dict):
 
-        ts = datetime.utcnow().isoformat()
+        ts = datetime.now(timezone.utc).isoformat()
 
         file = self.base / f"{event_type}.jsonl"
 

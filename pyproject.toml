@@ -3,7 +3,16 @@ name = "dgm-hub"
 version = "0.1.0"
 description = "Local AI development gateway"
 requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.111",
+    "pyyaml>=6.0",
+    "requests>=2.32",
+]
 
 [tool.dgm_hub]
 mode = "headless"
 platform = "windows"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]

@@ -3,7 +3,8 @@ from dgm_hub.tools.base import Tool
 
 
 class PowerShellTool(Tool):
-    name = "powershell"
+    name = "powershell_tool"
+    aliases = ["powershell"]
 
     def __init__(self):
         self.runner = CommandRunner()

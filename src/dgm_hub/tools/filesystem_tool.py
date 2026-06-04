@@ -5,7 +5,8 @@ from dgm_hub.tools.base import Tool
 
 
 class FilesystemTool(Tool):
-    name = "filesystem"
+    name = "filesystem_tool"
+    aliases = ["filesystem"]
 
     def __init__(self, guard: PathGuard):
         self.guard = guard

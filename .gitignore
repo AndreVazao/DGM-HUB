@@ -25,3 +25,6 @@ Thumbs.db
 # Cache / runtime artifacts
 *.cache
 .cache/
+runtime/logs.jsonl
+runtime/telemetry.jsonl
+runtime/tasks/

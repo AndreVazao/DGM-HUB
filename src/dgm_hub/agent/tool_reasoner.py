@@ -17,33 +17,30 @@ class ToolReasoner:
         """
 
         files = repository_context.get("files", [])
+        directories = repository_context.get("directories", [])
+        root = repository_context.get("root", ".")
 
         tool_calls = []
 
         # heuristic v1 (simple but functional)
 
-        if any("test" in f.lower() for f in files):
+        if ".git" in directories:
 
             tool_calls.append({
-                "name": "test_runner",
-                "payload": {}
-            })
-
-        if any(f.endswith(".py") for f in files):
-
-            tool_calls.append({
-                "name": "filesystem_tool",
+                "name": "git_tool",
                 "payload": {
-                    "action": "scan"
+                    "operation": "status",
+                    "repo_path": root
                 }
             })
 
-        if len(files) > 50:
+        if len(files) > 10 or len(directories) > 5:
 
             tool_calls.append({
                 "name": "repo_tool",
                 "payload": {
-                    "mode": "summary"
+                    "operation": "summary",
+                    "repo_path": root
                 }
             })
 

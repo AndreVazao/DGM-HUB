@@ -1,10 +1,5 @@
-import sys
-import os
-from pathlib import Path
-
-# Add src to PYTHONPATH
-sys.path.append(str(Path(__file__).parent.parent / "src"))
-
+from dgm_hub.control.execution_engine import ExecutionEngine
+from dgm_hub.control.protocol_v2 import Action, ExecutionPlan
 from dgm_hub.security.policy_engine import PolicyEngine
 
 def test_policy_engine():
@@ -21,10 +16,19 @@ def test_policy_engine():
 
     print("Policy Engine Test Passed!")
 
-if __name__ == "__main__":
-    try:
-        test_policy_engine()
-        print("\nSecurity tests completed successfully!")
-    except Exception as e:
-        print(f"\nSecurity tests failed: {e}")
-        sys.exit(1)
+def test_execution_engine_blocks_dangerous_commands(tmp_path):
+    engine = ExecutionEngine(base_dir=tmp_path)
+    plan = ExecutionPlan(
+        id="security-1",
+        title="Blocked Command",
+        summary="Attempting to run a destructive command.",
+        actions=[
+            Action(type="run_command", payload={"cmd": "git reset --hard"})
+        ],
+        risk="high",
+    )
+
+    result = engine.execute(plan)
+
+    assert result[0]["status"] == "error"
+    assert "Command denied" in result[0]["error"]

@@ -7,7 +7,8 @@ from dgm_hub.tools.base import Tool
 
 class GitTool(Tool):
 
-    name = "git"
+    name = "git_tool"
+    aliases = ["git"]
 
     def __init__(
         self,
@@ -26,7 +27,7 @@ class GitTool(Tool):
     ):
 
         result = subprocess.run(
-            ["git", "-C", str(repo), *args],
+            ["git", "-c", f"safe.directory={repo.resolve().as_posix()}", "-C", str(repo), *args],
             capture_output=True,
             text=True
         )

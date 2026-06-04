@@ -4,7 +4,11 @@ import yaml
 
 class PermissionManager:
     def __init__(self, config_path: str = "config/permissions.yaml"):
-        with open(config_path, "r", encoding="utf-8") as f:
+        path = Path(config_path)
+        if not path.exists() and not path.is_absolute():
+            path = Path(__file__).resolve().parents[3] / config_path
+
+        with path.open("r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
 
     def _normalize(self, path: str) -> str:

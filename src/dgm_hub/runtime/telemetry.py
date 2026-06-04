@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 class Telemetry:
@@ -9,7 +9,7 @@ class Telemetry:
 
     def emit(self, event: str, data: dict):
         entry = {
-            "time": datetime.utcnow().isoformat(),
+            "time": datetime.now(timezone.utc).isoformat(),
             "event": event,
             "data": data
         }

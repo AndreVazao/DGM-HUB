@@ -24,9 +24,11 @@ class WorkflowRuntime:
 
     def run_tests(
         self,
-        command:str
+        command:str,
+        cwd: str | None = None
     ):
 
         return self.tests.run(
-            command
+            command,
+            cwd=cwd
         )

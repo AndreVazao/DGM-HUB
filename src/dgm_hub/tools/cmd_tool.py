@@ -3,7 +3,8 @@ from dgm_hub.tools.base import Tool
 
 
 class CmdTool(Tool):
-    name = "cmd"
+    name = "cmd_tool"
+    aliases = ["cmd"]
 
     def __init__(self):
         self.runner = CommandRunner()

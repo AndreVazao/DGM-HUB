@@ -11,10 +11,11 @@ class TestResult:
 
 class TestPipeline:
 
-    def run(self, command: str):
+    def run(self, command: str, cwd: str | None = None):
 
         result = subprocess.run(
             command,
+            cwd=cwd,
             shell=True,
             capture_output=True,
             text=True

@@ -3,7 +3,8 @@ from dgm_hub.tools.base import Tool
 
 
 class TestRunnerTool(Tool):
-    name = "tests"
+    name = "test_runner"
+    aliases = ["tests"]
 
     def __init__(self):
         self.runner = CommandRunner()

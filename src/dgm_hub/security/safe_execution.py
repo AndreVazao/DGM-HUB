@@ -11,8 +11,8 @@ class ExecutionSnapshot:
 
 class SafeExecutionManager:
     def __init__(self, base_dir: str):
-        self.base_dir = Path(base_dir)
-        self.snapshots_dir = self.base_dir / ".dgm_snapshots"
+        self.base_dir = Path(base_dir).resolve()
+        self.snapshots_dir = self.base_dir.parent / ".dgm_snapshots" / self.base_dir.name
         self.snapshots_dir.mkdir(exist_ok=True, parents=True)
 
     def create_snapshot(self, target_path: str) -> ExecutionSnapshot:

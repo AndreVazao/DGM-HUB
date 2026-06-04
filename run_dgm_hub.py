@@ -1,4 +1,8 @@
 import argparse
+from local_bootstrap import enable_src_imports
+
+enable_src_imports()
+
 from dgm_hub.agent.agent_loop import AgentLoop
 
 def main():
@@ -18,6 +22,7 @@ def main():
     print("SUCCESS:", result.success)
     print("\nCONTEXT:", result.context)
     print("\nTOOL RESULTS:", result.tool_results)
+    print("\nTEST RESULT:", result.test_result)
     print("\nPATCH:", result.patch_result)
 
     if result.error:

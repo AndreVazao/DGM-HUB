@@ -4,9 +4,9 @@ from dgm_hub.memory.execution_journal import ExecutionJournal
 
 class EngineeringLoop:
 
-    def __init__(self):
+    def __init__(self, journal=None):
         self.engine = ExecutionEngine()
-        self.journal = ExecutionJournal()
+        self.journal = journal or ExecutionJournal()
 
     def run(self, plan, max_iterations=3):
         iteration = 0

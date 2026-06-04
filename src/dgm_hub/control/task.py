@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 import uuid
 
 
@@ -19,7 +19,7 @@ class Task:
 
     created_at: str = field(
         default_factory=lambda:
-        datetime.utcnow().isoformat()
+        datetime.now(timezone.utc).isoformat()
     )
 
     result: dict | None = None

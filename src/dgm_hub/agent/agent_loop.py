@@ -13,6 +13,7 @@ class AgentResult:
     success: bool
     context: dict | None = None
     tool_results: list | None = None
+    test_result: any = None
     patch_result: any = None
     error: str | None = None
     metrics: dict | None = None
@@ -62,16 +63,17 @@ class AgentLoop:
 
             if self.review_gate.requires_human_approval(patch_result):
                 result = AgentResult(
-                    success=True,
+                    success=execution.success,
                     context=context,
                     tool_results=tool_exec.tool_results,
+                    test_result=execution.test_result,
                     patch_result={
                         "status": "pending_review",
                         "data": patch_result
                     }
                 )
                 self.telemetry.emit("run_end", {
-                    "success": True,
+                    "success": execution.success,
                     "patch": "pending_review"
                 })
                 return result
@@ -82,18 +84,19 @@ class AgentLoop:
             }
 
             self.logger.log("run_end", {
-                "success": True,
+                "success": execution.success,
                 "patch": patch_result is not None
             })
             self.telemetry.emit("run_end", {
-                "success": True,
+                "success": execution.success,
                 "patch": patch_result is not None
             })
 
             return AgentResult(
-                success=True,
+                success=execution.success,
                 context=context,
                 tool_results=tool_exec.tool_results,
+                test_result=execution.test_result,
                 patch_result=patch_result,
                 metrics=metrics
             )

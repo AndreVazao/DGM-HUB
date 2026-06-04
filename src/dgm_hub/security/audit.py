@@ -1,5 +1,5 @@
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 
 
@@ -12,7 +12,7 @@ class AuditLogger:
         file = self.path / "audit.jsonl"
 
         payload = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event": event,
             "data": data,
         }

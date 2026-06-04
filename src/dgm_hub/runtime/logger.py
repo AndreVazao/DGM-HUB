@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 class RuntimeLogger:
@@ -9,7 +9,7 @@ class RuntimeLogger:
 
     def log(self, event: str, data: dict):
         entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "event": event,
             "data": data
         }

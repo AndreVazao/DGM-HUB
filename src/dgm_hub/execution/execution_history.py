@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 @dataclass
@@ -19,7 +19,7 @@ class ExecutionHistory:
         self.records.append(
             ExecutionRecord(
                 action=action,
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
                 success=success
             )
         )

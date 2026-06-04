@@ -5,7 +5,8 @@ from dgm_hub.tools.base import Tool
 
 
 class RepoTool(Tool):
-    name = "repo"
+    name = "repo_tool"
+    aliases = ["repo"]
 
     def execute(self, operation: str, repo_path: str):
 
@@ -20,6 +21,13 @@ class RepoTool(Tool):
             return {
                 "root": str(repo),
                 "tree": tree,
+                "summary": self._build_summary(tree)
+            }
+
+        if operation == "summary":
+            tree = self._build_tree(repo)
+            return {
+                "root": str(repo),
                 "summary": self._build_summary(tree)
             }
 

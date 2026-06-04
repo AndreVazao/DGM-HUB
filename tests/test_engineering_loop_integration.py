@@ -1,10 +1,9 @@
-import os
 import json
-from pathlib import Path
 from dataclasses import dataclass
 from typing import List, Dict, Any
 
 from dgm_hub.agent.engineering_loop import EngineeringLoop
+from dgm_hub.memory.execution_journal import ExecutionJournal
 
 @dataclass
 class Action:
@@ -19,13 +18,9 @@ class ExecutionPlan:
     actions: List[Action]
     risk: str
 
-def test_engineering_loop_integration():
-    # Cleanup previous journal if exists
-    journal_path = Path("runtime/execution_journal.jsonl")
-    if journal_path.exists():
-        journal_path.unlink()
-
-    loop = EngineeringLoop()
+def test_engineering_loop_integration(tmp_path):
+    journal_path = tmp_path / "execution_journal.jsonl"
+    loop = EngineeringLoop(journal=ExecutionJournal(journal_path))
 
     # Create a plan that succeeds
     plan = ExecutionPlan(
