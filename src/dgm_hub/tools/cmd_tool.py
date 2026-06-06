@@ -1,3 +1,4 @@
+import sys
 from dgm_hub.execution.command_runner import CommandRunner
 from dgm_hub.tools.base import Tool
 
@@ -10,8 +11,15 @@ class CmdTool(Tool):
         self.runner = CommandRunner()
 
     def execute(self, command: str):
-        return self.runner.run([
-            "cmd",
-            "/c",
-            command,
-        ])
+        if sys.platform == "win32":
+            return self.runner.run([
+                "cmd",
+                "/c",
+                command,
+            ])
+        else:
+            return self.runner.run([
+                "sh",
+                "-c",
+                command,
+            ])

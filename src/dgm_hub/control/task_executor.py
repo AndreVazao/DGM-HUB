@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 import hashlib
+import logging
 from dgm_hub.execution.execution_history import ExecutionHistory
 from dgm_hub.execution.repository_context import RepositoryContextGenerator
 from dgm_hub.control.workflow_runtime import WorkflowRuntime
@@ -49,6 +50,9 @@ class TaskExecutor:
                 self.safety = SafeExecutionManager(str(repo_p))
 
             snapshot = self.safety.create_snapshot(str(repo_p))
+            if not snapshot:
+                raise RuntimeError(f"Failed to create snapshot for {repo_p}. Aborting.")
+
             context = self.repository.build(str(repo_p))
             tool_results = []
             if tool_calls:
@@ -64,6 +68,7 @@ class TaskExecutor:
                 test_result = None
 
             success = test_result.success if test_result is not None else True
+
             if snapshot:
                 self.safety.rollback(snapshot)
 
@@ -77,9 +82,12 @@ class TaskExecutor:
             self.journal.log_task_execution(str(repo_p), result)
             return result
         except Exception as exc:
+            logging.error(f"Task execution failed: {exc}")
             if snapshot:
-                try: self.safety.rollback(snapshot)
-                except: pass
+                try:
+                    self.safety.rollback(snapshot)
+                except Exception as rollback_exc:
+                    logging.error(f"Rollback failed during error handling: {rollback_exc}")
             self.history.add("task_execute", False)
             result = TaskExecutionResult(success=False, error=str(exc))
             self.journal.log_task_execution(repository_path, result)
