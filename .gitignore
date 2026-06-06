@@ -30,3 +30,8 @@ runtime/telemetry.jsonl
 runtime/tasks/
 runtime/
 tests/real_world/work/
+venv_validation/
+*.egg-info/
+venv_validation/
+*.egg-info/
+install_output.log

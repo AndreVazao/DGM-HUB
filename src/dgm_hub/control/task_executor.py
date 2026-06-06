@@ -10,6 +10,7 @@ from dgm_hub.tools.unified_tool_manager import UnifiedToolManager
 from dgm_hub.security.safe_execution import SafeExecutionManager
 from dgm_hub.security.policy_engine import PolicyEngine
 from dgm_hub.memory.execution_journal import ExecutionJournal
+from dgm_hub.execution.test_pipeline import TestResult
 
 @dataclass
 class TaskExecutionResult:
@@ -65,9 +66,9 @@ class TaskExecutor:
             if test_command:
                 test_result = self.runtime.run_tests(test_command, cwd=str(repo_p))
             else:
-                test_result = None
+                test_result = TestResult(passed=True, output="No tests executed", return_code=0)
 
-            success = test_result.success if test_result is not None else True
+            success = test_result.success
 
             if snapshot:
                 self.safety.rollback(snapshot)

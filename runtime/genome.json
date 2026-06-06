@@ -1587,5 +1587,83 @@
     "result": {
       "error": "Path denied: /app"
     }
+  },
+  {
+    "id": "c185f0d7-3984-4d67-ae98-7ad559a06b15",
+    "objective": "test",
+    "plan": {
+      "tool": "git",
+      "operation": "status"
+    },
+    "success": false,
+    "score": 0.0,
+    "result": {
+      "error": "Path denied: /app"
+    }
+  },
+  {
+    "id": "62f99357-f2cc-48a5-9f7f-49fda7f8cce2",
+    "objective": "test",
+    "plan": {
+      "tool": "git",
+      "operation": "status"
+    },
+    "success": false,
+    "score": 0.0,
+    "result": {
+      "error": "Path denied: /app"
+    }
+  },
+  {
+    "id": "610deec6-bda4-4b59-851a-dc77c7d82dd0",
+    "objective": "test",
+    "plan": {
+      "tool": "git",
+      "operation": "status"
+    },
+    "success": false,
+    "score": 0.0,
+    "result": {
+      "error": "Path denied: /app"
+    }
+  },
+  {
+    "id": "a75150fc-3b06-4add-b826-c0a18ba24fa8",
+    "objective": "test",
+    "plan": {
+      "tool": "git",
+      "operation": "status"
+    },
+    "success": false,
+    "score": 0.0,
+    "result": {
+      "error": "Path denied: /app"
+    }
+  },
+  {
+    "id": "7f126c45-69c9-494d-8368-b58869345a57",
+    "objective": "test",
+    "plan": {
+      "tool": "git",
+      "operation": "status"
+    },
+    "success": false,
+    "score": 0.0,
+    "result": {
+      "error": "Path denied: /app"
+    }
+  },
+  {
+    "id": "dd521111-c5b6-43bb-8d76-f740a0590ae5",
+    "objective": "test",
+    "plan": {
+      "tool": "git",
+      "operation": "status"
+    },
+    "success": false,
+    "score": 0.0,
+    "result": {
+      "error": "Path denied: /app"
+    }
   }
 ]
