@@ -7,6 +7,9 @@ dependencies = [
     "fastapi>=0.111",
     "pyyaml>=6.0",
     "requests>=2.32",
+    "uvicorn>=0.30",
+    "pytest>=8.0",
+    "psutil>=6.0",
 ]
 
 [tool.dgm_hub]

@@ -3,7 +3,7 @@ import subprocess
 import sys
 
 from dgm_hub.security.policy_engine import PolicyEngine
-from dgm_hub.runtime.live_logger import LOGGER
+from dgm_hub.runtime.live_logs import LOGGER
 
 
 class ExecutionEngine:
