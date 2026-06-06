@@ -6,3 +6,6 @@ Requires-Python: >=3.12
 Requires-Dist: fastapi>=0.111
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: requests>=2.32
+Requires-Dist: uvicorn>=0.30
+Requires-Dist: pytest>=8.0
+Requires-Dist: psutil>=6.0

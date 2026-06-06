@@ -9,11 +9,18 @@ class TestResult:
     output: str
     return_code: int
 
+    @property
+    def success(self) -> bool:
+        return self.passed
+
 
 class TestPipeline:
 
-    def run(self, repo_path: str | Path, command: str | None = None):
-        cwd = Path(repo_path)
+    def run(self, command: str | None = None, cwd: str | Path | None = None):
+        if not cwd:
+            cwd = Path.cwd()
+        else:
+            cwd = Path(cwd)
 
         if not command:
             command = "python -m pytest"
