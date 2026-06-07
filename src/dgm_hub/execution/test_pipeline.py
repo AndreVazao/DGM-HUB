@@ -14,22 +14,25 @@ class TestPipeline:
 
     def run(
         self,
-        command: str,
+        command: str | None = None,
         cwd: str | Path | None = None
     ) -> TestResult:
 
-        working_dir = Path(cwd).resolve() if cwd else None
+        if command is None:
+            command = "python -m pytest"
+
+        working_dir = Path(cwd).resolve() if cwd else Path.cwd()
 
         result = subprocess.run(
             command,
-            cwd=working_dir,
+            cwd=str(working_dir),
             shell=True,
             capture_output=True,
-            text=True
+            text=True,
         )
 
         return TestResult(
             success=result.returncode == 0,
-            output=result.stdout + result.stderr,
-            return_code=result.returncode
+            output=(result.stdout or "") + (result.stderr or ""),
+            return_code=result.returncode,
         )
