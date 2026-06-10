@@ -1,8 +1,10 @@
 from pathlib import Path
 import subprocess
 import sys
+import shlex
 
 from dgm_hub.security.policy_engine import PolicyEngine
+from dgm_hub.security.command_validator import CommandValidator
 from dgm_hub.runtime.live_logs import LOGGER
 
 
@@ -10,6 +12,7 @@ class ExecutionEngine:
     def __init__(self, base_dir: str | Path = ".", timeout_seconds: int | None = None):
         self.base_dir = Path(base_dir).resolve()
         self.policy = PolicyEngine()
+        self.command_validator = CommandValidator(allowed_base_paths=[self.base_dir])
         self.timeout_seconds = timeout_seconds
 
     def execute(self, plan, journal=None):
@@ -58,29 +61,31 @@ class ExecutionEngine:
                     if hasattr(action, "payload") and "cmd" in action.payload:
                         LOGGER.log(f"Executing {action.type}: {action.payload['cmd']}")
                         command_result = self._run_command(action.payload["cmd"])
-                        if command_result["returncode"] != 0:
-                            results.append({
-                                "action": action.type,
-                                "status": "error",
-                                "command": command_result,
-                                "error": f"Command failed with return code {command_result['returncode']}"
-                            })
-                            del command_result
-                            continue
-                    else:
-                        results.append({"action": action.type, "status": "error", "error": f"Unknown action type: {action.type}"})
+                        results.append({
+                            "action": action.type,
+                            "status": "ok" if command_result["returncode"] == 0 else "error",
+                            "command": command_result
+                        })
                         continue
 
-                result = {"action": action.type, "status": "ok"}
-                if action.type in ["run_command", "git", "test"] or "command_result" in locals():
-                    result["command"] = command_result
-                    del command_result
-                results.append(result)
+                results.append({
+                    "action": action.type,
+                    "status": "ok",
+                })
+            except PermissionError as e:
+                LOGGER.log(f"[ERROR] Permission denied: {e}")
+                results.append({
+                    "action": action.type,
+                    "status": "error",
+                    "error": str(e)
+                })
             except Exception as e:
-                results.append({"action": action.type, "status": "error", "error": str(e)})
-
-        if journal:
-            journal.log_result(plan_id, {"results": results})
+                LOGGER.log(f"[ERROR] Action failed: {e}")
+                results.append({
+                    "action": action.type,
+                    "status": "error",
+                    "error": str(e)
+                })
 
         return results
 
@@ -89,21 +94,57 @@ class ExecutionEngine:
         return raw.resolve() if raw.is_absolute() else (self.base_dir / raw).resolve()
 
     def _run_command(self, command: str) -> dict:
+        """
+        Execute a command safely without shell injection risks.
+        
+        SECURITY:
+        - Uses CommandValidator for security checks
+        - Uses shlex.split() for proper command parsing
+        - Uses list-based subprocess.Popen (no shell=True)
+        - Validates against dangerous patterns and operators
+        
+        Args:
+            command: The command string to execute
+            
+        Returns:
+            Dictionary with returncode, stdout, stderr
+            
+        Raises:
+            PermissionError: If command is not allowed by policy
+        """
+        # Validate command security
+        if not self.command_validator.is_safe(command):
+            raise PermissionError(f"Command rejected by security policy: {command}")
+        
+        # Additional legacy validation (for compatibility)
         if not self.policy.validate_command(command):
-            raise PermissionError(f"Command denied: {command}")
+            raise PermissionError(f"Command denied by policy: {command}")
+        
+        # Parse command safely
+        try:
+            tokens = shlex.split(command)
+            if not tokens:
+                raise ValueError("Empty command")
+        except ValueError as e:
+            raise PermissionError(f"Invalid command syntax: {e}")
 
         # Use Popen so we can forcefully kill on Windows when timeout fires.
         # subprocess.run(..., timeout=N) with shell=True on Windows raises
         # TimeoutExpired but does NOT kill the child process tree, causing
         # communicate() to hang indefinitely.
+        #
+        # CRITICAL FIX: Use list-based invocation (tokens) instead of shell=True
+        # This prevents shell injection entirely. The command is parsed by shlex,
+        # not by the shell, so no shell metacharacters are evaluated.
         kwargs = dict(
-            cwd=self.base_dir,
-            shell=True,
+            cwd=str(self.base_dir),
+            # NO shell=True - we pass a list of tokens instead
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
         )
-        proc = subprocess.Popen(command, **kwargs)
+        
         try:
+            proc = subprocess.Popen(tokens, **kwargs)
             stdout_bytes, stderr_bytes = proc.communicate(timeout=self.timeout_seconds)
             stdout = stdout_bytes.decode("utf-8", errors="replace")
             stderr = stderr_bytes.decode("utf-8", errors="replace")

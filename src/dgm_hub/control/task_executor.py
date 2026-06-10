@@ -66,9 +66,9 @@ class TaskExecutor:
             if test_command:
                 test_result = self.runtime.run_tests(test_command, cwd=str(repo_p))
             else:
-                test_result = TestResult(success=True, output="No tests executed", return_code=0)
+                test_result = TestResult(passed=True, output="No tests executed", return_code=0)
 
-            success = getattr(test_result, "success", True)
+            success = getattr(test_result, "passed", True)
 
             if snapshot:
                 self.safety.rollback(snapshot)
