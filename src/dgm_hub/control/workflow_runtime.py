@@ -15,7 +15,7 @@ class WorkflowRuntime:
 
     def inspect_repository(
         self,
-        path:str
+        path: str
     ):
 
         return self.repository.build(
@@ -24,11 +24,19 @@ class WorkflowRuntime:
 
     def run_tests(
         self,
-        command:str,
+        command: str,
         cwd: str | None = None
     ):
-
+        """
+        Execute tests in the specified working directory.
+        
+        Args:
+            command: The test command to execute
+            cwd: Working directory where tests should run
+        
+        Maps to TestPipeline.run(command, cwd) correctly.
+        """
         return self.tests.run(
-            command,
+            command=command,
             cwd=cwd
         )
