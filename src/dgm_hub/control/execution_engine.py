@@ -87,6 +87,9 @@ class ExecutionEngine:
                     "error": str(e)
                 })
 
+        if journal:
+            journal.log_result(plan_id, {"results": results})
+
         return results
 
     def _resolve_path(self, path: str) -> Path:
@@ -127,6 +130,12 @@ class ExecutionEngine:
                 raise ValueError("Empty command")
         except ValueError as e:
             raise PermissionError(f"Invalid command syntax: {e}")
+
+        # Windows built-in command support
+        # Commands like echo, dir, etc. require cmd.exe /c
+        win_builtins = {"echo", "dir", "copy", "type", "cd", "mkdir", "rmdir", "ren", "move"}
+        if sys.platform == "win32" and tokens[0].lower() in win_builtins:
+            tokens = ["cmd.exe", "/c", command]
 
         # Use Popen so we can forcefully kill on Windows when timeout fires.
         # subprocess.run(..., timeout=N) with shell=True on Windows raises
