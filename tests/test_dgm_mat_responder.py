@@ -224,3 +224,25 @@ def test_thread_map_rejects_untrusted_thread_ids(monkeypatch, tmp_path):
     assert json.loads(mapping_path.read_text(encoding="utf-8")) == {
         "conversation-1": "thread-0123456789abcdef"
     }
+
+
+def test_dgm_mat_api_requests_use_the_configured_runtime_base_url(monkeypatch):
+    calls = []
+    monkeypatch.setattr(hub, "DGM_MAT_BASE_URL", "http://127.0.0.1:8182")
+    monkeypatch.setattr(hub, "_dgm_mat_session_token", lambda: "test-session-token")
+
+    class Response:
+        status_code = 200
+        def json(self):
+            return {"status": "ok"}
+
+    def fake_request(method, url, **kwargs):
+        calls.append((method, url, kwargs))
+        return Response()
+
+    monkeypatch.setattr(hub.requests, "request", fake_request)
+    result = hub._dgm_mat_api_request("GET", "/health")
+
+    assert result == {"status": "ok"}
+    assert calls[0][1] == "http://127.0.0.1:8182/health"
+    assert calls[0][2]["headers"]["Authorization"] == "Bearer test-session-token"
