@@ -1,6 +1,15 @@
 name: MultiChat Event Contract
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - run_multichat.py
+      - multichat_journal.py
+      - tests/test_multichat_event_contract.py
+      - tests/test_multichat_safety.py
+      - docs/EVENT_JOURNAL_AND_TASK_CORRELATION.md
+      - .github/workflows/multichat-contract.yml
   pull_request:
     branches: [main]
     paths:
