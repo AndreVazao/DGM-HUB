@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
+from multichat_journal import EventJournal
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -21,6 +22,7 @@ ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "runtime" / "multichat"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 JOURNAL = DATA_DIR / "conversation.jsonl"
+EVENT_STORE = EventJournal(DATA_DIR / "journal.sqlite3", JOURNAL)
 STATE_FILE = DATA_DIR / "providers.json"
 HTML_FILE = ROOT / "multichat.html"
 
@@ -49,8 +51,10 @@ DEFAULT_STATE = {
     "llm7": {"enabled": False, "pid": None, "process_started_at": None},
 }
 
-app = FastAPI(title="DGM-HUB MultiChat", version="0.2.0")
-TASKS: dict[str, dict[str, Any]] = {}
+app = FastAPI(title="DGM-HUB MultiChat", version="0.3.0")
+TASKS: dict[str, dict[str, Any]] = EVENT_STORE.load_tasks()
+EVENT_STORE.recover_incomplete_tasks()
+TASKS = EVENT_STORE.load_tasks()
 ACTIVE_PROCESSES: dict[str, set[subprocess.Popen]] = {name: set() for name in DEFAULT_STATE}
 CLAUDE_CLI_VERIFIED = False
 
@@ -84,10 +88,9 @@ def save_state() -> None:
     temporary.replace(STATE_FILE)
 
 
-def journal(event: dict[str, Any]) -> None:
-    record = {"timestamp": datetime.now(timezone.utc).isoformat(), **event}
-    with JOURNAL.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+def journal(event: dict[str, Any]) -> dict[str, Any]:
+    """Append an event with a stable ID and durable sequence number."""
+    return EVENT_STORE.append(event)
 
 
 def safe_workspace(value: str | None) -> Path:
@@ -499,9 +502,15 @@ def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
     return result
 
 
-def run_dgm_observer(message: str, conversation_id: str) -> dict[str, Any]:
+def run_dgm_observer(message: str, conversation_id: str, task_id: str) -> dict[str, Any]:
     online = http_online(DGM_MAT_HEALTH)
-    journal({"kind": "dgm_mat_observation", "conversation_id": conversation_id, "user_message": message, "mode": "observer"})
+    journal({
+        "kind": "dgm_mat_observation",
+        "task_id": task_id,
+        "conversation_id": conversation_id,
+        "user_message": message,
+        "mode": "observer",
+    })
     text = (
         "Estou presente como observador do DGM-MAT. Registei o pedido para análise e aprendizagem. "
         f"Runtime {'saudável' if online else 'indisponível'}. "
@@ -537,15 +546,50 @@ def provider_stop(name: str) -> dict[str, Any]:
 
 
 async def execute_provider(task_id: str, conversation_id: str, name: str, job: Any) -> None:
+    task = TASKS[task_id]
+    task["status"] = "running"
+    TASKS[task_id] = EVENT_STORE.save_task(task)
     try:
         result = await asyncio.to_thread(job)
     except subprocess.TimeoutExpired:
         result = {"provider": name, "status": "timeout", "text": "Tempo limite excedido."}
     except Exception as exc:
         result = {"provider": name, "status": "error", "text": f"{type(exc).__name__}: {str(exc)[:2500]}"}
-    TASKS[task_id]["results"][name] = result
-    TASKS[task_id]["completed"].append(name)
-    journal({"kind": "provider_response", "conversation_id": conversation_id, **result})
+
+    result.setdefault("provider", name)
+    task = TASKS[task_id]
+    task["results"][name] = result
+    if name not in task["completed"]:
+        task["completed"].append(name)
+    if len(task["completed"]) >= len(task["targets"]):
+        successful = sum(
+            1 for item in task["results"].values()
+            if item.get("status") in {"ok", "observer"}
+        )
+        if successful == len(task["targets"]):
+            task["status"] = "completed"
+        elif successful:
+            task["status"] = "partial"
+        else:
+            task["status"] = "failed"
+    else:
+        task["status"] = "running"
+
+    event_kind = (
+        "provider_response"
+        if result.get("status") in {"ok", "observer"}
+        else "provider_error"
+    )
+    stored_task, _event = EVENT_STORE.save_task_and_event(
+        task,
+        {
+            "kind": event_kind,
+            "task_id": task_id,
+            "conversation_id": conversation_id,
+            **result,
+        },
+    )
+    TASKS[task_id] = stored_task
 
 
 @app.post("/api/chat")
@@ -563,16 +607,37 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
     workspace = safe_workspace(request.workspace)
     prompt = make_prompt(message, conversation_id, "consultor")
     task_id = str(uuid.uuid4())
-    journal({"kind": "user_message", "conversation_id": conversation_id, "message": message, "targets": targets, "workspace": str(workspace)})
+    created_at = datetime.now(timezone.utc).isoformat()
+    task = {
+        "task_id": task_id,
+        "conversation_id": conversation_id,
+        "targets": targets,
+        "completed": [],
+        "results": {},
+        "created_at": created_at,
+        "updated_at": created_at,
+        "status": "queued",
+    }
+    TASKS[task_id] = task
+    EVENT_STORE.create_task(
+        task,
+        {
+            "kind": "user_message",
+            "task_id": task_id,
+            "conversation_id": conversation_id,
+            "message": message,
+            "targets": targets,
+            "workspace": str(workspace),
+        },
+    )
     jobs = {
         "ollama": lambda: run_ollama(prompt, request.model),
         "codex": lambda: run_codex(prompt, workspace),
         "claude": lambda: run_claude(prompt, workspace),
-        "dgm_mat": lambda: run_dgm_observer(message, conversation_id),
+        "dgm_mat": lambda: run_dgm_observer(message, conversation_id, task_id),
         "kilo": lambda: run_anonymous_api("kilo", KILO_URL, KILO_MODEL, prompt),
         "llm7": lambda: run_anonymous_api("llm7", LLM7_URL, LLM7_MODEL, prompt),
     }
-    TASKS[task_id] = {"conversation_id": conversation_id, "targets": targets, "completed": [], "results": {}, "created_at": datetime.now(timezone.utc).isoformat()}
     for name in targets:
         asyncio.create_task(execute_provider(task_id, conversation_id, name, jobs[name]))
     return {"task_id": task_id, "conversation_id": conversation_id, "targets": targets}
@@ -580,21 +645,30 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
 
 @app.get("/api/tasks/{task_id}")
 def task_status(task_id: str) -> dict[str, Any]:
-    task = TASKS.get(task_id)
+    task = TASKS.get(task_id) or EVENT_STORE.get_task(task_id)
     if not task:
-        raise HTTPException(404, "Tarefa não encontrada ou servidor reiniciado.")
-    return {"task_id": task_id, "conversation_id": task["conversation_id"], "targets": task["targets"], "completed": task["completed"], "results": task["results"], "done": len(task["completed"]) == len(task["targets"])}
+        raise HTTPException(404, "Tarefa não encontrada.")
+    TASKS[task_id] = task
+    terminal = task.get("status") in {"completed", "partial", "failed", "interrupted"}
+    return {
+        "task_id": task_id,
+        "conversation_id": task["conversation_id"],
+        "targets": task["targets"],
+        "completed": task["completed"],
+        "results": task["results"],
+        "status": task.get("status", "unknown"),
+        "created_at": task.get("created_at"),
+        "updated_at": task.get("updated_at"),
+        "done": terminal or len(task["completed"]) == len(task["targets"]),
+    }
 
 
 @app.get("/api/history")
-def history(limit: int = 100) -> dict[str, Any]:
-    if not JOURNAL.exists():
-        return {"events": []}
-    lines = JOURNAL.read_text(encoding="utf-8").splitlines()[-max(1, min(limit, 500)):]
-    events = []
-    for line in lines:
-        try:
-            events.append(json.loads(line))
-        except json.JSONDecodeError:
-            continue
-    return {"events": events}
+def history(
+    limit: int = Query(default=100, ge=1, le=500),
+    after: str | None = None,
+) -> dict[str, Any]:
+    try:
+        return EVENT_STORE.page(after=after, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
