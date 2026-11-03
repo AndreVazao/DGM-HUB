@@ -3,20 +3,22 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 import shutil
 import subprocess
 import psutil
+import threading
 import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import requests
 from fastapi import FastAPI, HTTPException, Query
 from multichat_journal import EventJournal
 from fastapi.responses import HTMLResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 ROOT = Path(__file__).resolve().parent
 DATA_DIR = ROOT / "runtime" / "multichat"
@@ -39,14 +41,18 @@ CLAUDE_NODE_EXE = Path(r"C:\Program Files\nodejs\node.exe")
 CLAUDE_CLI_JS = Path.home() / "AppData" / "Local" / "ClaudeCode-JS-2.1.112" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
 CLAUDE_MCP_CONFIG = DATA_DIR / "empty-mcp.json"
 DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT")
-DGM_MAT_HEALTH = "http://127.0.0.1:8181/health"
+DGM_MAT_BASE_URL = "http://127.0.0.1:8181"
+DGM_MAT_HEALTH = DGM_MAT_BASE_URL + "/health"
+DGM_MAT_THREAD_MAP_FILE = DATA_DIR / "dgm_mat_threads.json"
+_DGM_MAT_LOCK = threading.RLock()
+_DGM_MAT_SESSION: dict[str, Any] = {"token": None, "expires_at": 0.0}
 FCC_HEALTH = "http://127.0.0.1:8082/admin"
 
 DEFAULT_STATE = {
     "codex": {"enabled": True, "pid": None, "process_started_at": None},
     "claude": {"enabled": False, "pid": None, "process_started_at": None},
     "ollama": {"enabled": False, "pid": None, "process_started_at": None},
-    "dgm_mat": {"enabled": True, "pid": None, "process_started_at": None},
+    "dgm_mat": {"enabled": True, "pid": None, "process_started_at": None, "mode": "observer"},
     "kilo": {"enabled": False, "pid": None, "process_started_at": None},
     "llm7": {"enabled": False, "pid": None, "process_started_at": None},
 }
@@ -63,8 +69,14 @@ class ChatRequest(BaseModel):
     message: str = Field(min_length=1, max_length=12000)
     targets: list[str] = Field(default_factory=lambda: ["codex", "dgm_mat"])
     model: str = OLLAMA_MODEL
-    conversation_id: str | None = None
+    conversation_id: str | None = Field(default=None, min_length=1, max_length=128)
     workspace: str | None = None
+
+
+class DgmMatModeRequest(BaseModel):
+    mode: Literal["observer", "respond", "hybrid"]
+
+    model_config = ConfigDict(extra="forbid")
 
 
 def load_state() -> dict[str, dict[str, Any]]:
@@ -106,6 +118,141 @@ def http_online(url: str) -> bool:
         return requests.get(url, timeout=1.5).ok
     except requests.RequestException:
         return False
+
+
+def _dgm_mat_session_token() -> str:
+    with _DGM_MAT_LOCK:
+        token = _DGM_MAT_SESSION.get("token")
+        if isinstance(token, str) and token and time.monotonic() < float(_DGM_MAT_SESSION.get("expires_at", 0)):
+            return token
+
+        configured_path = os.getenv("DGM_LOCAL_BOOTSTRAP_FILE", "").strip()
+        if configured_path:
+            bootstrap_path = Path(configured_path)
+        else:
+            local_app_data = Path(os.getenv("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+            bootstrap_path = local_app_data / "DGM-MAT" / "security" / "bootstrap.token"
+        try:
+            bootstrap = bootstrap_path.read_text(encoding="utf-8")
+        except OSError:
+            raise RuntimeError("DGM-MAT local bootstrap credential is unavailable; no request was sent.") from None
+        if len(bootstrap) < 60 or bootstrap != bootstrap.strip():
+            raise RuntimeError("DGM-MAT local bootstrap credential is invalid; no request was sent.")
+
+        try:
+            response = requests.post(
+                DGM_MAT_BASE_URL + "/auth/session",
+                headers={"Authorization": "Bearer " + bootstrap},
+                json={"client_id": "dgm-hub-multichat"},
+                timeout=(2, 5),
+                allow_redirects=False,
+            )
+        except requests.RequestException as exc:
+            raise RuntimeError(f"DGM-MAT local session could not be issued ({type(exc).__name__}).") from None
+        if response.status_code != 201:
+            raise RuntimeError(f"DGM-MAT local session was refused (HTTP {response.status_code}).")
+        try:
+            payload = response.json()
+        except ValueError:
+            raise RuntimeError("DGM-MAT local session returned invalid JSON.") from None
+        token = payload.get("access_token") if isinstance(payload, dict) else None
+        expires_in = payload.get("expires_in", 0) if isinstance(payload, dict) else 0
+        if not isinstance(token, str) or not token or not isinstance(expires_in, (int, float)) or expires_in <= 0:
+            raise RuntimeError("DGM-MAT local session response was incomplete.")
+        _DGM_MAT_SESSION["token"] = token
+        _DGM_MAT_SESSION["expires_at"] = time.monotonic() + max(15, float(expires_in) - 60)
+        return token
+
+
+def _dgm_mat_api_request(method: str, path: str, payload: dict[str, Any] | None = None) -> dict[str, Any]:
+    token = _dgm_mat_session_token()
+    try:
+        response = requests.request(
+            method,
+            DGM_MAT_BASE_URL + path,
+            headers={"Authorization": "Bearer " + token},
+            json=payload,
+            timeout=(3, 45),
+            allow_redirects=False,
+        )
+    except requests.RequestException as exc:
+        raise RuntimeError(f"DGM-MAT API request failed ({type(exc).__name__}); no automatic retry was attempted.") from None
+    if response.status_code == 401:
+        with _DGM_MAT_LOCK:
+            _DGM_MAT_SESSION.update({"token": None, "expires_at": 0.0})
+    if not 200 <= response.status_code < 300:
+        raise RuntimeError(f"DGM-MAT API returned HTTP {response.status_code} for {path}; no automatic retry was attempted.")
+    try:
+        result = response.json()
+    except ValueError:
+        raise RuntimeError(f"DGM-MAT API returned invalid JSON for {path}.") from None
+    if not isinstance(result, dict):
+        raise RuntimeError(f"DGM-MAT API returned an unexpected response for {path}.")
+    return result
+
+
+def _set_dgm_mat_observer(active: bool) -> dict[str, Any]:
+    action = "start" if active else "stop"
+    path = f"/governance/agents/hub/observer/{action}"
+    try:
+        return _dgm_mat_api_request("POST", path)
+    except RuntimeError as exc:
+        # Older installed DGM-MAT runtimes predate the passive observer API.
+        # A 404 proves that no such background observer route is installed;
+        # the Hub's own observer/respond mode remains authoritative meanwhile.
+        if "HTTP 404" in str(exc):
+            return {
+                "status": "not_installed",
+                "observer_enabled": False,
+                "requested_enabled": active,
+                "reason": "DGM-MAT passive observer API is not deployed in this runtime.",
+            }
+        raise
+
+
+def _valid_dgm_mat_thread_id(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"thread-[0-9a-f]{16}", value) is not None
+
+
+def _load_dgm_mat_thread_map() -> dict[str, str]:
+    try:
+        payload = json.loads(DGM_MAT_THREAD_MAP_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return {
+        key: value for key, value in payload.items()
+        if isinstance(key, str) and _valid_dgm_mat_thread_id(value)
+    }
+
+
+def _save_dgm_mat_thread_map(mapping: dict[str, str]) -> None:
+    DGM_MAT_THREAD_MAP_FILE.parent.mkdir(parents=True, exist_ok=True)
+    temporary = DGM_MAT_THREAD_MAP_FILE.with_suffix(".tmp")
+    temporary.write_text(json.dumps(mapping, ensure_ascii=False, indent=2), encoding="utf-8")
+    temporary.replace(DGM_MAT_THREAD_MAP_FILE)
+
+
+def _dgm_mat_thread_id(conversation_id: str) -> str:
+    with _DGM_MAT_LOCK:
+        mapping = _load_dgm_mat_thread_map()
+        existing = mapping.get(conversation_id)
+        if existing:
+            return existing
+        created = _dgm_mat_api_request(
+            "POST",
+            "/mobile/threads",
+            {"title": "DGM-HUB " + conversation_id[:24], "project": "DGM-MAT"},
+        )
+        thread_id = created.get("id")
+        if not _valid_dgm_mat_thread_id(thread_id):
+            raise RuntimeError("DGM-MAT did not return a valid conversation thread ID.")
+        mapping[conversation_id] = thread_id
+        while len(mapping) > 1000:
+            mapping.pop(next(iter(mapping)))
+        _save_dgm_mat_thread_map(mapping)
+        return thread_id
 
 
 def process_alive(pid: Any) -> bool:
@@ -286,9 +433,20 @@ def start_provider(name: str) -> dict[str, Any]:
                 entry["pid"] = None
                 entry["process_started_at"] = None
                 raise HTTPException(503, "DGM-MAT não ficou saudável em 10 segundos.")
+        mode = entry.get("mode", "observer")
+        if mode == "respond":
+            try:
+                _set_dgm_mat_observer(False)
+            except RuntimeError as exc:
+                raise HTTPException(503, f"Não foi possível desativar o observador do DGM-MAT: {exc}") from exc
         entry["enabled"] = True
         save_state()
-        return {"provider": name, "enabled": True, "running": True, "message": "DGM-MAT presente como observador. Não assume liderança nem altera projetos."}
+        labels = {
+            "observer": "observa e regista; não responde",
+            "respond": "responde através do runtime autenticado do DGM-MAT; observador desligado",
+            "hybrid": "observa e responde através do runtime autenticado do DGM-MAT",
+        }
+        return {"provider": name, "enabled": True, "running": True, "mode": mode, "message": "DGM-MAT ativo: " + labels.get(mode, labels["observer"]) + "."}
     if name in ("kilo", "llm7"):
         base = KILO_URL if name == "kilo" else LLM7_URL
         if not http_online(base + "/models"):
@@ -370,7 +528,12 @@ def provider_status() -> dict[str, Any]:
         "codex": {"online": codex_ok, "installed": codex_ok, "description": "CLI por mensagem"},
         "claude": {"online": fcc_online, "installed": claude_ok, "fcc_online": fcc_online, "cli_status": "response_verified" if CLAUDE_CLI_VERIFIED else "response_not_yet_verified", "description": "Claude Code via FCC; execucao isolada e somente de leitura"},
         "ollama": {"online": ollama_online, "installed": bool(shutil.which("ollama")), "models": []},
-        "dgm_mat": {"online": dgm_online, "installed": DGM_MAT_ROOT.exists(), "description": "Observador, sem autoridade"},
+        "dgm_mat": {
+            "online": dgm_online,
+            "installed": DGM_MAT_ROOT.exists(),
+            "mode": str(PROVIDERS["dgm_mat"].get("mode", "observer")),
+            "description": "Runtime central DGM-MAT; modo selecionável no painel",
+        },
         "kilo": {"online": http_online(KILO_URL + "/models"), "installed": True, "description": "Kilo Gateway ? gratuito sem chave ? openrouter/free"},
         "llm7": {"online": http_online(LLM7_URL + "/models"), "installed": True, "description": "LLM7 ? acesso an?nimo sem chave ? gpt-oss:20b"},
     }
@@ -382,7 +545,7 @@ def provider_status() -> dict[str, Any]:
     for name, item in values.items():
         item["enabled"] = bool(PROVIDERS[name]["enabled"])
         item["ready"] = bool(item["online"] and item["enabled"])
-    return {"hub": "online", "providers": values, "dgm_mat_mode": "observer"}
+    return {"hub": "online", "providers": values, "dgm_mat_mode": str(PROVIDERS["dgm_mat"].get("mode", "observer"))}
 
 
 def run_ollama(prompt: str, model: str) -> dict[str, Any]:
@@ -514,10 +677,65 @@ def run_dgm_observer(message: str, conversation_id: str, task_id: str) -> dict[s
     text = (
         "Estou presente como observador do DGM-MAT. Registei o pedido para análise e aprendizagem. "
         f"Runtime {'saudável' if online else 'indisponível'}. "
-        "Ainda não estou ligado ao motor conversacional autenticado, por isso não vou inventar uma resposta inteligente. "
         "A decisão e a liderança continuam exclusivamente contigo."
     )
     return {"provider": "dgm_mat", "text": text, "duration_seconds": 0, "status": "observer"}
+
+
+def run_dgm_mat_responder(message: str, conversation_id: str, task_id: str) -> dict[str, Any]:
+    if not http_online(DGM_MAT_HEALTH):
+        raise RuntimeError("DGM-MAT não está saudável; a mensagem não foi encaminhada.")
+    thread_id = _dgm_mat_thread_id(conversation_id)
+    try:
+        response = _dgm_mat_api_request(
+            "POST",
+            f"/mobile/threads/{thread_id}/messages",
+            {"content": message},
+        )
+    except RuntimeError as exc:
+        if "HTTP 404" not in str(exc):
+            raise
+        with _DGM_MAT_LOCK:
+            mapping = _load_dgm_mat_thread_map()
+            mapping.pop(conversation_id, None)
+            _save_dgm_mat_thread_map(mapping)
+        thread_id = _dgm_mat_thread_id(conversation_id)
+        response = _dgm_mat_api_request(
+            "POST",
+            f"/mobile/threads/{thread_id}/messages",
+            {"content": message},
+        )
+
+    answer = response.get("message")
+    if not isinstance(answer, str) or not answer.strip():
+        raise RuntimeError("DGM-MAT não devolveu uma resposta de conversa válida.")
+    intent = response.get("intent") if isinstance(response.get("intent"), dict) else {}
+    return {
+        "provider": "dgm_mat",
+        "status": "ok",
+        "text": answer[:12000],
+        "duration_seconds": 0,
+        "mode": "respond",
+        "thread_id": thread_id,
+        "mission_id": response.get("mission_id"),
+        "intent": intent,
+        "response_source": "authenticated_dgm_mat_mobile_runtime",
+    }
+
+
+def run_dgm_mat(message: str, conversation_id: str, task_id: str) -> dict[str, Any]:
+    mode = str(PROVIDERS["dgm_mat"].get("mode", "observer"))
+    if mode == "observer":
+        return run_dgm_observer(message, conversation_id, task_id)
+    if mode == "respond":
+        return run_dgm_mat_responder(message, conversation_id, task_id)
+    if mode == "hybrid":
+        observed = run_dgm_observer(message, conversation_id, task_id)
+        response = run_dgm_mat_responder(message, conversation_id, task_id)
+        response["mode"] = "hybrid"
+        response["observation_recorded"] = observed.get("status") == "observer"
+        return response
+    raise RuntimeError("Modo DGM-MAT desconhecido; pedido recusado.")
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -543,6 +761,36 @@ def provider_start(name: str) -> dict[str, Any]:
 @app.post("/api/providers/{name}/stop")
 def provider_stop(name: str) -> dict[str, Any]:
     return stop_provider(name)
+
+
+@app.post("/api/providers/dgm_mat/mode")
+def set_dgm_mat_mode(request: DgmMatModeRequest) -> dict[str, Any]:
+    """Change DGM-MAT participation mode and synchronize its passive observer."""
+    active_observer = request.mode in {"observer", "hybrid"}
+    try:
+        observer_state = _set_dgm_mat_observer(active_observer)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=f"Modo não alterado; controlo do observador falhou: {exc}") from exc
+    PROVIDERS["dgm_mat"]["mode"] = request.mode
+    save_state()
+    passive_observer_enabled = (
+        False if observer_state.get("status") == "not_installed" else active_observer
+    )
+    messages = {
+        "observer": "O DGM-MAT observa e regista; não responde na sala.",
+        "respond": "O observador foi desligado. O DGM-MAT responde através da sua API local autenticada.",
+        "hybrid": "O DGM-MAT observa e também responde através da sua API local autenticada.",
+    }
+    message = messages[request.mode]
+    if observer_state.get("status") == "not_installed":
+        message += " A captura passiva adicional ainda não está instalada neste runtime; o registo por pedido funciona quando o DGM-MAT está selecionado."
+    return {
+        "provider": "dgm_mat",
+        "mode": request.mode,
+        "observer_enabled": passive_observer_enabled,
+        "observer_state": observer_state,
+        "message": message,
+    }
 
 
 async def execute_provider(task_id: str, conversation_id: str, name: str, job: Any) -> None:
@@ -634,7 +882,7 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
         "ollama": lambda: run_ollama(prompt, request.model),
         "codex": lambda: run_codex(prompt, workspace),
         "claude": lambda: run_claude(prompt, workspace),
-        "dgm_mat": lambda: run_dgm_observer(message, conversation_id, task_id),
+        "dgm_mat": lambda: run_dgm_mat(message, conversation_id, task_id),
         "kilo": lambda: run_anonymous_api("kilo", KILO_URL, KILO_MODEL, prompt),
         "llm7": lambda: run_anonymous_api("llm7", LLM7_URL, LLM7_MODEL, prompt),
     }
