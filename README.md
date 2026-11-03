@@ -39,7 +39,7 @@ The launcher **does not start Ollama or FCC automatically**. Those providers are
 - **Codex Free** — invokes the local CLI when a message is sent; it is not a persistent daemon.
 - **Claude Code / FCC** — the Hub invokes the local Claude CLI; FCC availability is controlled explicitly. Stopping participation terminates only the FCC process started by this Hub instance; an existing external FCC process is left untouched.
 - **Ollama Local** — disabled by default; the Hub can start `ollama serve` only after the operator enables it.
-- **DGM-MAT** — optional observer. It can record and respond to the discussion, but it does not lead the room or receive repository-write authority.
+- **DGM-MAT** — optional participant with three modes: Observer, Assistant/Respond, and Hybrid. Respond/Hybrid use the authenticated local DGM-MAT conversation API; Observer mode only records the Hub request. The MAT retains its own governance and approval queue and does not inherit authority from external providers.
 - **Kilo Gateway** — optional anonymous free routing through `openrouter/free`; availability and model selection are variable.
 - **LLM7** — optional anonymous provider using `gpt-oss:20b`; availability is variable.
 
@@ -48,10 +48,12 @@ The provider selector chooses who responds to the next message. Provider availab
 ### Security boundaries
 
 - The server binds only to `127.0.0.1`; do not expose port 8770 to LAN or the Internet.
-- Provider calls are consultative. No provider may modify a repository through this cockpit.
+- Codex, Claude, Kilo and LLM7 are consultative; their output cannot modify repositories through this cockpit.
+- DGM-MAT is a separate governed runtime. Its responder may create missions; only its explicit supported read-only allowlist can auto-run, while other actions remain subject to the durable approval queue and current executor capability.
 - Codex uses the isolated profile `C:\AI\agent-benchmark\codex-home`.
 - Conversation events are journaled under `runtime/multichat/conversation.jsonl`.
 - The Hub must not claim a DGM-MAT response unless the authenticated DGM-MAT runtime actually returned one.
+- DGM-MAT participation modes, local authentication, conversation continuity and current inference limitations are documented in [DGM-MAT responder modes](docs/DGM-MAT-RESPONDER-MODES.md).
 - Do not send confidential project material to external free gateways.
 - Ollama remains disabled unless explicitly enabled.
 
