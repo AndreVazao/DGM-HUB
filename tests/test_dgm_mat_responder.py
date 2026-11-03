@@ -246,3 +246,55 @@ def test_dgm_mat_api_requests_use_the_configured_runtime_base_url(monkeypatch):
     assert result == {"status": "ok"}
     assert calls[0][1] == "http://127.0.0.1:8182/health"
     assert calls[0][2]["headers"]["Authorization"] == "Bearer test-session-token"
+
+
+def test_dgm_mat_off_mode_disables_participation_and_stops_observer(monkeypatch):
+    monkeypatch.setitem(hub.PROVIDERS["dgm_mat"], "mode", "respond")
+    monkeypatch.setitem(hub.PROVIDERS["dgm_mat"], "enabled", True)
+    calls = []
+    monkeypatch.setattr(hub, "_set_dgm_mat_observer", lambda active: calls.append(active) or {"status": "stopped"})
+    monkeypatch.setattr(hub, "save_state", lambda: None)
+    client = TestClient(hub.app)
+
+    response = client.post("/api/providers/dgm_mat/mode", json={"mode": "off"})
+
+    assert response.status_code == 200
+    assert response.json()["mode"] == "off"
+    assert response.json()["enabled"] is False
+    assert response.json()["observer_enabled"] is False
+    assert hub.PROVIDERS["dgm_mat"]["mode"] == "off"
+    assert hub.PROVIDERS["dgm_mat"]["enabled"] is False
+    assert calls == [False]
+
+
+def test_dgm_mat_chat_is_rejected_while_mode_is_off(monkeypatch):
+    monkeypatch.setitem(hub.PROVIDERS["dgm_mat"], "mode", "off")
+    monkeypatch.setitem(hub.PROVIDERS["dgm_mat"], "enabled", False)
+    client = TestClient(hub.app)
+    response = client.post("/api/chat", json={"message": "Olá", "targets": ["dgm_mat"]})
+    assert response.status_code == 409
+
+
+def test_dgm_mat_ui_exposes_three_visible_modes_and_dgm_only_action():
+    html = hub.HTML_FILE.read_text(encoding="utf-8")
+    assert 'data-mode="off"' in html
+    assert 'data-mode="observer"' in html
+    assert 'data-mode="respond"' in html
+    assert 'id="dgmOnly"' in html
+    assert 'id="dgmMatMode"' not in html
+
+
+def test_dgm_mat_stop_provider_turns_off_observer_and_participation(monkeypatch):
+    monkeypatch.setitem(hub.PROVIDERS["dgm_mat"], "mode", "respond")
+    monkeypatch.setitem(hub.PROVIDERS["dgm_mat"], "enabled", True)
+    calls = []
+    monkeypatch.setattr(hub, "_set_dgm_mat_observer", lambda active: calls.append(active) or {"status": "stopped"})
+    monkeypatch.setattr(hub, "save_state", lambda: None)
+
+    result = hub.stop_provider("dgm_mat")
+
+    assert result["mode"] == "off"
+    assert result["enabled"] is False
+    assert hub.PROVIDERS["dgm_mat"]["mode"] == "off"
+    assert hub.PROVIDERS["dgm_mat"]["enabled"] is False
+    assert calls == [False]
