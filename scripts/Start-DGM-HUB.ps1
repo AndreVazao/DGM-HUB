@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 $Root = Split-Path -Parent $PSScriptRoot
 $DgmRoot = if ($env:DGM_MAT_ROOT) { $env:DGM_MAT_ROOT } else { 'C:\ProgramasGodMode\DGM-MAT' }
-$Port = 8770
+$Port = if ($env:DGM_HUB_PORT) { [int]$env:DGM_HUB_PORT } else { 8771 }
 $LogDir = Join-Path $Root 'runtime\multichat\logs'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
@@ -64,7 +64,7 @@ function Start-DgmMat {
 }
 
 function Start-Hub {
-    $health = "http://127.0.0.1:$Port/api/health"
+    $health = "http://127.0.0.1:$Port/api/health/live"
     if (Test-LocalUrl $health) { Write-Host 'DGM-HUB já está saudável.'; return }
     if (Test-PortListener $Port) { throw "A porta $Port está ocupada mas o DGM-HUB não responde ao health check. Não vou iniciar uma segunda instância." }
 
