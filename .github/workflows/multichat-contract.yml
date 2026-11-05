@@ -2,23 +2,9 @@ name: MultiChat Event Contract
 
 on:
   push:
-    branches: [main]
-    paths:
-      - run_multichat.py
-      - multichat_journal.py
-      - tests/test_multichat_event_contract.py
-      - tests/test_multichat_safety.py
-      - docs/EVENT_JOURNAL_AND_TASK_CORRELATION.md
-      - .github/workflows/multichat-contract.yml
+    branches: [main, "fix/**", "feat/**", "recovery/**"]
   pull_request:
     branches: [main]
-    paths:
-      - run_multichat.py
-      - multichat_journal.py
-      - tests/test_multichat_event_contract.py
-      - tests/test_multichat_safety.py
-      - docs/EVENT_JOURNAL_AND_TASK_CORRELATION.md
-      - .github/workflows/multichat-contract.yml
   workflow_dispatch:
 
 permissions:
@@ -40,4 +26,4 @@ jobs:
       - name: Compile MultiChat runtime
         run: python -m compileall -q run_multichat.py multichat_journal.py
       - name: Run event/task contract regressions
-        run: python -m pytest -q tests/test_multichat_event_contract.py tests/test_multichat_safety.py
+        run: python -m pytest -q tests/test_multichat_event_contract.py tests/test_multichat_safety.py tests/test_evidence_grounding.py tests/test_launcher_contract.py tests/test_dgm_mat_responder.py
