@@ -174,14 +174,14 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
     normalized_remote = (remote or "").casefold().replace("git@github.com:", "https://github.com/")
     repository_confirmed = bool(
         root
-        and re.search(r"github\\.com/andrevazao/dgm-mat(?:\\.git)?$", normalized_remote)
+        and re.search(r"github\.com/andrevazao/dgm-mat(?:\.git)?$", normalized_remote)
     )
     if repository_confirmed:
         add("Git repository root", root)
         add("Repository identity", "origin confirmed as AndreVazao/DGM-MAT")
         add("Current branch", _git_evidence(["branch", "--show-current"]))
         add("HEAD commit", _git_evidence(["log", "-1", "--format=%H%n%cs%n%s"]))
-        remote = re.sub(r"(https?://)[^/@\\s]+@", r"\\1", remote or "")
+        remote = re.sub(r"(https?://)[^/@\s]+@", r"\1", remote or "")
         add("Origin remote (credentials stripped)", remote)
         status = _git_evidence(["status", "--short", "--branch"])
         if status:
