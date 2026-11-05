@@ -217,7 +217,7 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
     if tests_dir.is_dir():
         try:
             test_files = sorted(
-                str(item.relative_to(DGM_MAT_ROOT))
+                item.relative_to(DGM_MAT_ROOT).as_posix()
                 for item in tests_dir.rglob("test_*.py")
                 if item.is_file() and not any(part in {".git", "__pycache__", ".venv"} for part in item.parts)
             )
