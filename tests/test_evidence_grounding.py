@@ -135,3 +135,55 @@ def test_liveness_endpoint_does_not_probe_external_providers(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "ok"
     assert response.json()["service"] == "dgm-hub"
+
+
+def test_evidence_gate_rejects_uncited_claim_even_when_another_line_is_cited():
+    task = {"requires_evidence": True, "evidence_refs": ["E1", "E2"]}
+    result = {
+        "provider": "llm7",
+        "status": "ok",
+        "text": "A branch atual é main [E1].\\nO projeto usa numpy==1.18.5.",
+    }
+
+    gated = hub.apply_evidence_gate(result, task)
+
+    assert gated["status"] == "unverified"
+    assert gated["grounding_status"] == "blocked_missing_or_invalid_evidence_citations"
+    assert "numpy==1.18.5" in gated["unverified_text"]
+
+
+def test_evidence_gate_rejects_unknown_reference_on_one_line():
+    task = {"requires_evidence": True, "evidence_refs": ["E1"]}
+    result = {
+        "provider": "llm7",
+        "status": "ok",
+        "text": "A branch é main [E1].\\nA dependência está obsoleta [E9].",
+    }
+
+    gated = hub.apply_evidence_gate(result, task)
+
+    assert gated["status"] == "unverified"
+
+
+def test_evidence_collector_does_not_read_project_files_when_origin_is_unconfirmed(monkeypatch, tmp_path: Path):
+    (tmp_path / "README.md").write_text("SECRET TEST MARKER", encoding="utf-8")
+    monkeypatch.setattr(hub, "DGM_MAT_ROOT", tmp_path.resolve())
+    monkeypatch.setattr(hub, "EVIDENCE_CACHE", {"expires_at": 0.0, "packet": None})
+
+    def fake_run(command, **kwargs):
+        args = command[3:]
+        if args[:2] == ["rev-parse", "--show-toplevel"]:
+            output = str(tmp_path)
+        elif args[:2] == ["remote", "get-url"]:
+            output = "https://github.com/another-owner/another-repo.git"
+        else:
+            raise AssertionError(f"Project metadata must not be read: {args}")
+        return SimpleNamespace(returncode=0, stdout=output, stderr="")
+
+    monkeypatch.setattr(hub.subprocess, "run", fake_run)
+    monkeypatch.setattr(hub.requests, "get", lambda *args, **kwargs: SimpleNamespace(ok=False, status_code=503))
+
+    packet = hub.collect_dgm_mat_evidence()
+
+    assert "SECRET TEST MARKER" not in packet["text"]
+    assert "not confirmed as AndreVazao/DGM-MAT" in packet["text"]
