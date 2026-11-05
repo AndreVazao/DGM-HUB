@@ -65,7 +65,6 @@ TASKS = EVENT_STORE.load_tasks()
 ACTIVE_PROCESSES: dict[str, set[subprocess.Popen]] = {name: set() for name in DEFAULT_STATE}
 CLAUDE_CLI_VERIFIED = False
 PROVIDER_VERIFICATION: dict[str, dict[str, Any]] = {}
-PROVIDER_VERIFICATION: dict[str, dict[str, Any]] = {}
 EVIDENCE_CACHE: dict[str, Any] = {"expires_at": 0.0, "packet": None}
 EVIDENCE_CACHE_LOCK = threading.RLock()
 
@@ -251,7 +250,7 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
         ),
     }
     with EVIDENCE_CACHE_LOCK:
-        EVIDENCE_CACHE.update({"expires_at": time.monotonic() + 300, "packet": packet})
+        EVIDENCE_CACHE.update({"expires_at": time.monotonic() + 60, "packet": packet})
     return packet
 
 
@@ -872,7 +871,20 @@ def run_anonymous_api(provider: str, base_url: str, model: str, prompt: str) -> 
     if not content:
         finish = choices[0].get("finish_reason") if choices else "no_choices"
         raise RuntimeError(f"{provider} n?o devolveu texto (finish_reason={finish}).")
-    return {"provider": provider, "model": data.get("model", model), "text": content, "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
+    duration = round(time.perf_counter() - started, 2)
+    PROVIDER_VERIFICATION[provider] = {
+        "status": "response_verified",
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "duration_seconds": duration,
+    }
+    return {
+        "provider": provider,
+        "model": data.get("model", model),
+        "text": content,
+        "duration_seconds": duration,
+        "status": "ok",
+        "response_verified": True,
+    }
 
 
 def make_prompt(
