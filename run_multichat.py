@@ -189,41 +189,44 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
     elif root:
         add("Local repository evidence", "Refused: origin did not confirm AndreVazao/DGM-MAT; local files and Git state were not read.")
 
-    safe_files = (
-        "pyproject.toml",
-        "README.md",
-        "docs/AUTONOMOUS_RUNTIME.md",
-        "docs/ARCHITECTURE_GUARDRAILS.md",
-    )
-    for relative in safe_files:
-        path = (DGM_MAT_ROOT / relative).resolve()
-        if DGM_MAT_ROOT == path or DGM_MAT_ROOT not in path.parents:
-            continue
-        try:
-            if path.is_file():
-                add(f"Allowlisted file: {relative}", path.read_text(encoding="utf-8", errors="replace")[:7000])
-        except OSError:
-            continue
-
-    workflows_dir = DGM_MAT_ROOT / ".github" / "workflows"
-    if workflows_dir.is_dir():
-        names = sorted(
-            item.name for item in workflows_dir.iterdir()
-            if item.is_file() and item.suffix.casefold() in {".yml", ".yaml"}
+    if repository_confirmed:
+        safe_files = (
+            "pyproject.toml",
+            "README.md",
+            "docs/AUTONOMOUS_RUNTIME.md",
+            "docs/ARCHITECTURE_GUARDRAILS.md",
         )
-        add("GitHub Actions workflow filenames", "\n".join(names) if names else "No workflow files found.")
+        for relative in safe_files:
+            path = (DGM_MAT_ROOT / relative).resolve()
+            if DGM_MAT_ROOT == path or DGM_MAT_ROOT not in path.parents:
+                continue
+            try:
+                if path.is_file():
+                    add(f"Allowlisted file: {relative}", path.read_text(encoding="utf-8", errors="replace")[:7000])
+            except OSError:
+                continue
 
-    tests_dir = DGM_MAT_ROOT / "tests"
-    if tests_dir.is_dir():
-        try:
-            test_files = sorted(
-                item.relative_to(DGM_MAT_ROOT).as_posix()
-                for item in tests_dir.rglob("test_*.py")
-                if item.is_file() and not any(part in {".git", "__pycache__", ".venv"} for part in item.parts)
+        workflows_dir = DGM_MAT_ROOT / ".github" / "workflows"
+        if workflows_dir.is_dir():
+            names = sorted(
+                item.name for item in workflows_dir.iterdir()
+                if item.is_file() and item.suffix.casefold() in {".yml", ".yaml"}
             )
-            add("Python test file inventory", "\n".join(test_files[:120]) or "No test_*.py files found.")
-        except OSError:
-            pass
+            add("GitHub Actions workflow filenames", "\\n".join(names) if names else "No workflow files found.")
+
+        tests_dir = DGM_MAT_ROOT / "tests"
+        if tests_dir.is_dir():
+            try:
+                test_files = sorted(
+                    item.relative_to(DGM_MAT_ROOT).as_posix()
+                    for item in tests_dir.rglob("test_*.py")
+                    if item.is_file() and not any(part in {".git", "__pycache__", ".venv"} for part in item.parts)
+                )
+                add("Python test file inventory", "\\n".join(test_files[:120]) or "No test_*.py files found.")
+            except OSError:
+                pass
+    else:
+        add("Local project files", "Not read: configured directory was not confirmed as AndreVazao/DGM-MAT by its Git origin.")
 
     try:
         response = requests.get(
@@ -265,8 +268,20 @@ def apply_evidence_gate(result: dict[str, Any], task: dict[str, Any]) -> dict[st
     """Do not present project-audit claims as usable unless they cite supplied evidence IDs."""
     text = str(result.get("text") or "")
     valid_refs = set(task.get("evidence_refs") or [])
-    cited_refs = set(re.findall(r"\[(E\d+)\]", text))
-    if not valid_refs or not cited_refs or not cited_refs.issubset(valid_refs):
+    cited_refs = set(re.findall(r"\\[(E\\d+)\\]", text))
+    factual_lines = [
+        line.strip()
+        for line in text.splitlines()
+        if line.strip()
+        and not line.strip().startswith("```")
+        and not re.fullmatch(r"#{1,6}\\s+[^.!?]+", line.strip())
+    ]
+    uncited_lines = [
+        line for line in factual_lines
+        if not re.search(r"\\[(E\\d+)\\]", line)
+        or not set(re.findall(r"\\[(E\\d+)\\]", line)).issubset(valid_refs)
+    ]
+    if not valid_refs or not cited_refs or not cited_refs.issubset(valid_refs) or uncited_lines:
         result["unverified_text"] = text[:12000]
         result["grounding_status"] = "blocked_missing_or_invalid_evidence_citations"
         result["status"] = "unverified"
