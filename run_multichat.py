@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 import os
 import re
 import shutil
@@ -40,13 +41,13 @@ CLAUDE_EXE = Path.home() / ".local" / "bin" / "fcc-claude.exe"
 CLAUDE_NODE_EXE = Path(r"C:\Program Files\nodejs\node.exe")
 CLAUDE_CLI_JS = Path.home() / "AppData" / "Local" / "ClaudeCode-JS-2.1.112" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
 CLAUDE_MCP_CONFIG = DATA_DIR / "empty-mcp.json"
-DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT")
+DGM_MAT_ROOT = Path(os.getenv("DGM_MAT_ROOT", r"C:\ProgramasGodMode\DGM-MAT")).resolve()
 DGM_MAT_BASE_URL = os.getenv("DGM_MAT_BASE_URL", "http://127.0.0.1:8181").strip().rstrip("/")
 DGM_MAT_HEALTH = DGM_MAT_BASE_URL + "/health"
 DGM_MAT_THREAD_MAP_FILE = DATA_DIR / "dgm_mat_threads.json"
 _DGM_MAT_LOCK = threading.RLock()
 _DGM_MAT_SESSION: dict[str, Any] = {"token": None, "expires_at": 0.0}
-FCC_HEALTH = "http://127.0.0.1:8082/admin"
+FCC_HEALTH = "http://127.0.0.1:8082/health"
 
 DEFAULT_STATE = {
     "codex": {"enabled": True, "pid": None, "process_started_at": None},
@@ -63,6 +64,9 @@ EVENT_STORE.recover_incomplete_tasks()
 TASKS = EVENT_STORE.load_tasks()
 ACTIVE_PROCESSES: dict[str, set[subprocess.Popen]] = {name: set() for name in DEFAULT_STATE}
 CLAUDE_CLI_VERIFIED = False
+PROVIDER_VERIFICATION: dict[str, dict[str, Any]] = {}
+EVIDENCE_CACHE: dict[str, Any] = {"expires_at": 0.0, "packet": None}
+EVIDENCE_CACHE_LOCK = threading.RLock()
 
 
 class ChatRequest(BaseModel):
@@ -118,6 +122,156 @@ def http_online(url: str) -> bool:
         return requests.get(url, timeout=1.5).ok
     except requests.RequestException:
         return False
+
+
+def is_project_audit_request(message: str) -> bool:
+    normalized = message.casefold()
+    project_terms = ("dgm-mat", "repositório", "repositorio", "repository", "repo ")
+    audit_terms = (
+        "estado", "status", "audita", "auditoria", "erros", "correções",
+        "correcoes", "falta", "pendente", "build", "testes", "workflows",
+        "pull request", "branch", "commits",
+    )
+    return any(term in normalized for term in project_terms) and any(
+        term in normalized for term in audit_terms
+    )
+
+
+def _git_evidence(args: list[str]) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(DGM_MAT_ROOT), *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return (result.stdout or "").strip()
+
+
+def collect_dgm_mat_evidence() -> dict[str, Any]:
+    """Collect a small, read-only, allowlisted evidence packet for project audits."""
+    now = time.monotonic()
+    with EVIDENCE_CACHE_LOCK:
+        cached = EVIDENCE_CACHE.get("packet")
+        if cached is not None and now < float(EVIDENCE_CACHE.get("expires_at", 0)):
+            return cached
+
+    sources: list[dict[str, str]] = []
+
+    def add(label: str, value: str | None) -> None:
+        if value and value.strip():
+            sources.append({"id": f"E{len(sources) + 1}", "label": label, "content": value.strip()[:7000]})
+
+    root = _git_evidence(["rev-parse", "--show-toplevel"])
+    if root:
+        add("Git repository root", root)
+        add("Current branch", _git_evidence(["branch", "--show-current"]))
+        add("HEAD commit", _git_evidence(["log", "-1", "--format=%H%n%cs%n%s"]))
+        remote = _git_evidence(["remote", "get-url", "origin"])
+        if remote:
+            remote = re.sub(r"(https?://)[^/@\s]+@", r"\1", remote)
+            add("Origin remote (credentials stripped)", remote)
+        status = _git_evidence(["status", "--short", "--branch"])
+        if status:
+            add("Working tree status (read-only)", "\n".join(status.splitlines()[:40]))
+
+    safe_files = (
+        "pyproject.toml",
+        "README.md",
+        "docs/AUTONOMOUS_RUNTIME.md",
+        "docs/ARCHITECTURE_GUARDRAILS.md",
+    )
+    for relative in safe_files:
+        path = (DGM_MAT_ROOT / relative).resolve()
+        if DGM_MAT_ROOT == path or DGM_MAT_ROOT not in path.parents:
+            continue
+        try:
+            if path.is_file():
+                add(f"Allowlisted file: {relative}", path.read_text(encoding="utf-8", errors="replace")[:7000])
+        except OSError:
+            continue
+
+    workflows_dir = DGM_MAT_ROOT / ".github" / "workflows"
+    if workflows_dir.is_dir():
+        names = sorted(
+            item.name for item in workflows_dir.iterdir()
+            if item.is_file() and item.suffix.casefold() in {".yml", ".yaml"}
+        )
+        add("GitHub Actions workflow filenames", "\n".join(names) if names else "No workflow files found.")
+
+    tests_dir = DGM_MAT_ROOT / "tests"
+    if tests_dir.is_dir():
+        try:
+            test_files = sorted(
+                str(item.relative_to(DGM_MAT_ROOT))
+                for item in tests_dir.rglob("test_*.py")
+                if item.is_file() and not any(part in {".git", "__pycache__", ".venv"} for part in item.parts)
+            )
+            add("Python test file inventory", "\n".join(test_files[:120]) or "No test_*.py files found.")
+        except OSError:
+            pass
+
+    try:
+        response = requests.get(
+            "https://api.github.com/repos/AndreVazao/DGM-MAT/pulls",
+            params={"state": "open", "per_page": 50},
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=(2, 6),
+        )
+        if response.ok:
+            rows = response.json()
+            add(
+                "GitHub open pull requests (public API)",
+                "\n".join(
+                    f"#{item.get('number')} {item.get('title')} | draft={item.get('draft')} | "
+                    f"head={((item.get('head') or {}).get('ref'))} | updated={item.get('updated_at')}"
+                    for item in rows if isinstance(item, dict)
+                ) or "GitHub reports no open pull requests.",
+            )
+        else:
+            add("GitHub open pull requests", f"Unavailable: HTTP {response.status_code}.")
+    except (requests.RequestException, ValueError, TypeError):
+        add("GitHub open pull requests", "Unavailable: public GitHub API request failed.")
+
+    packet = {
+        "available": bool(sources),
+        "collected_at": datetime.now(timezone.utc).isoformat(),
+        "refs": [item["id"] for item in sources],
+        "sources": sources,
+        "text": "\n\n".join(
+            f"[{item['id']}] {item['label']}\n{item['content']}" for item in sources
+        ),
+    }
+    with EVIDENCE_CACHE_LOCK:
+        EVIDENCE_CACHE.update({"expires_at": time.monotonic() + 300, "packet": packet})
+    return packet
+
+
+def apply_evidence_gate(result: dict[str, Any], task: dict[str, Any]) -> dict[str, Any]:
+    """Do not present project-audit claims as usable unless they cite supplied evidence IDs."""
+    text = str(result.get("text") or "")
+    valid_refs = set(task.get("evidence_refs") or [])
+    cited_refs = set(re.findall(r"\[(E\d+)\]", text))
+    if not valid_refs or not cited_refs or not cited_refs.issubset(valid_refs):
+        result["unverified_text"] = text[:12000]
+        result["grounding_status"] = "blocked_missing_or_invalid_evidence_citations"
+        result["status"] = "unverified"
+        result["text"] = (
+            "Resposta retida pelo contrato de evidência: o fornecedor não apresentou "
+            "citações válidas para os artefactos fornecidos. Não será tratada como diagnóstico factual. "
+            "A resposta original permanece registada para revisão."
+        )
+        return result
+    result["grounding_status"] = "evidence_citations_present_semantic_review_required"
+    result["evidence_refs"] = sorted(cited_refs)
+    return result
 
 
 def _dgm_mat_session_token() -> str:
@@ -643,13 +797,41 @@ def run_anonymous_api(provider: str, base_url: str, model: str, prompt: str) -> 
     return {"provider": provider, "model": data.get("model", model), "text": content, "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
 
 
-def make_prompt(message: str, conversation_id: str, provider: str) -> str:
+def make_prompt(
+    message: str,
+    conversation_id: str,
+    provider: str,
+    evidence_context: str | None = None,
+) -> str:
+    evidence_rules = (
+        "CONTRATO DE VERACIDADE OBRIGATÓRIO: não alegues acesso ao computador, terminal, "
+        "repositórios, contas, logs ou ficheiros que não estejam explicitamente no CONTEXTO DE EVIDÊNCIA. "
+        "Nunca inventes nomes de ficheiros, módulos, classes, dependências, versões, branches, commits, "
+        "testes, resultados, erros, workflows, PRs ou saídas de comandos. Não transformes recomendações "
+        "genéricas em erros encontrados. Distingue FACTOS, INFERÊNCIAS, RECOMENDAÇÕES e DESCONHECIDOS. "
+        "Cada afirmação factual sobre o estado do projeto tem de incluir pelo menos uma referência "
+        "exata [E1], [E2], etc., existente no contexto. Não inventes referências. Se a evidência não "
+        "permitir responder, diz claramente: NÃO TENHO EVIDÊNCIA SUFICIENTE.\n"
+    )
+    if evidence_context:
+        evidence_block = (
+            "CONTEXTO DE EVIDÊNCIA (recolha local read-only e metadados públicos; não é uma auditoria "
+            "completa nem prova de que cada afirmação inferida é correta):\n"
+            + evidence_context
+            + "\n"
+        )
+    else:
+        evidence_block = (
+            "CONTEXTO DE EVIDÊNCIA: NENHUM. Não tens acesso direto ao repositório local, ao GitHub "
+            "privado, ao terminal nem aos ficheiros do utilizador. Se o pedido exigir estado real do "
+            "projeto, declara que não tens acesso e não apresentes diagnósticos factuais.\n"
+        )
     return (
         "És um agente independente no DGM-HUB. Responde em Português de Portugal. "
-        "Analisa o pedido por mérito próprio; não inventes testes nem alterações feitas. "
-        "Se for engenharia, apresenta diagnóstico, proposta, riscos e validação. "
-        "Não alteres ficheiros nesta conversa: modo consultivo. "
-        f"Conversa: {conversation_id}. Papel: {provider}.\n\nPEDIDO DO ANDRÉ:\n{message}"
+        "Modo consultivo: não alteres ficheiros, não executes comandos e não declares ações que não fizeste. "
+        + evidence_rules
+        + evidence_block
+        + f"Conversa: {conversation_id}. Papel: {provider}.\n\nPEDIDO DO ANDRÉ:\n{message}"
     )
 
 
