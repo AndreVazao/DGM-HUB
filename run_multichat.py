@@ -41,7 +41,7 @@ CLAUDE_NODE_EXE = Path(r"C:\Program Files\nodejs\node.exe")
 CLAUDE_CLI_JS = Path.home() / "AppData" / "Local" / "ClaudeCode-JS-2.1.112" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
 CLAUDE_MCP_CONFIG = DATA_DIR / "empty-mcp.json"
 DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT")
-DGM_MAT_BASE_URL = "http://127.0.0.1:8181"
+DGM_MAT_BASE_URL = os.getenv("DGM_MAT_BASE_URL", "http://127.0.0.1:8181").strip().rstrip("/")
 DGM_MAT_HEALTH = DGM_MAT_BASE_URL + "/health"
 DGM_MAT_THREAD_MAP_FILE = DATA_DIR / "dgm_mat_threads.json"
 _DGM_MAT_LOCK = threading.RLock()
@@ -74,7 +74,7 @@ class ChatRequest(BaseModel):
 
 
 class DgmMatModeRequest(BaseModel):
-    mode: Literal["observer", "respond", "hybrid"]
+    mode: Literal["off", "observer", "respond", "hybrid"]
 
     model_config = ConfigDict(extra="forbid")
 
@@ -433,12 +433,14 @@ def start_provider(name: str) -> dict[str, Any]:
                 entry["pid"] = None
                 entry["process_started_at"] = None
                 raise HTTPException(503, "DGM-MAT não ficou saudável em 10 segundos.")
-        mode = entry.get("mode", "observer")
-        if mode == "respond":
-            try:
-                _set_dgm_mat_observer(False)
-            except RuntimeError as exc:
-                raise HTTPException(503, f"Não foi possível desativar o observador do DGM-MAT: {exc}") from exc
+        mode = str(entry.get("mode", "observer"))
+        if mode == "off":
+            mode = "observer"
+        try:
+            observer_state = _set_dgm_mat_observer(mode in {"observer", "hybrid"})
+        except RuntimeError as exc:
+            raise HTTPException(503, f"Não foi possível sincronizar o observador do DGM-MAT: {exc}") from exc
+        entry["mode"] = mode
         entry["enabled"] = True
         save_state()
         labels = {
@@ -446,7 +448,14 @@ def start_provider(name: str) -> dict[str, Any]:
             "respond": "responde através do runtime autenticado do DGM-MAT; observador desligado",
             "hybrid": "observa e responde através do runtime autenticado do DGM-MAT",
         }
-        return {"provider": name, "enabled": True, "running": True, "mode": mode, "message": "DGM-MAT ativo: " + labels.get(mode, labels["observer"]) + "."}
+        return {
+            "provider": name,
+            "enabled": True,
+            "running": True,
+            "mode": mode,
+            "observer_state": observer_state,
+            "message": "DGM-MAT ativo: " + labels[mode] + ".",
+        }
     if name in ("kilo", "llm7"):
         base = KILO_URL if name == "kilo" else LLM7_URL
         if not http_online(base + "/models"):
@@ -462,6 +471,21 @@ def stop_provider(name: str) -> dict[str, Any]:
     if name not in PROVIDERS:
         raise HTTPException(404, "Provider desconhecido.")
     entry = PROVIDERS[name]
+    if name == "dgm_mat":
+        try:
+            observer_state = _set_dgm_mat_observer(False)
+        except RuntimeError as exc:
+            raise HTTPException(503, f"DGM-MAT não desligado; o observador não confirmou paragem: {exc}") from exc
+        entry["mode"] = "off"
+        entry["enabled"] = False
+        save_state()
+        return {
+            "provider": name,
+            "enabled": False,
+            "mode": "off",
+            "observer_state": observer_state,
+            "message": "DGM-MAT desligado na sala; o runtime central permanece ligado.",
+        }
     entry["enabled"] = False
     message = "Participação desativada."
     active = list(ACTIVE_PROCESSES.get(name, set()))
@@ -772,21 +796,24 @@ def set_dgm_mat_mode(request: DgmMatModeRequest) -> dict[str, Any]:
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=f"Modo não alterado; controlo do observador falhou: {exc}") from exc
     PROVIDERS["dgm_mat"]["mode"] = request.mode
+    PROVIDERS["dgm_mat"]["enabled"] = request.mode != "off"
     save_state()
     passive_observer_enabled = (
         False if observer_state.get("status") == "not_installed" else active_observer
     )
     messages = {
+        "off": "DGM-MAT desligado na sala. O runtime central permanece ligado.",
         "observer": "O DGM-MAT observa e regista; não responde na sala.",
         "respond": "O observador foi desligado. O DGM-MAT responde através da sua API local autenticada.",
         "hybrid": "O DGM-MAT observa e também responde através da sua API local autenticada.",
     }
     message = messages[request.mode]
-    if observer_state.get("status") == "not_installed":
+    if observer_state.get("status") == "not_installed" and active_observer:
         message += " A captura passiva adicional ainda não está instalada neste runtime; o registo por pedido funciona quando o DGM-MAT está selecionado."
     return {
         "provider": "dgm_mat",
         "mode": request.mode,
+        "enabled": request.mode != "off",
         "observer_enabled": passive_observer_enabled,
         "observer_state": observer_state,
         "message": message,
