@@ -41,7 +41,7 @@ CLAUDE_EXE = Path.home() / ".local" / "bin" / "fcc-claude.exe"
 CLAUDE_NODE_EXE = Path(r"C:\Program Files\nodejs\node.exe")
 CLAUDE_CLI_JS = Path.home() / "AppData" / "Local" / "ClaudeCode-JS-2.1.112" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
 CLAUDE_MCP_CONFIG = DATA_DIR / "empty-mcp.json"
-DGM_MAT_ROOT = Path(os.getenv("DGM_MAT_ROOT", r"C:\ProgramasGodMode\DGM-MAT")).resolve()
+DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT").resolve()
 DGM_MAT_BASE_URL = os.getenv("DGM_MAT_BASE_URL", "http://127.0.0.1:8181").strip().rstrip("/")
 DGM_MAT_HEALTH = DGM_MAT_BASE_URL + "/health"
 DGM_MAT_THREAD_MAP_FILE = DATA_DIR / "dgm_mat_threads.json"
@@ -170,17 +170,24 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
             sources.append({"id": f"E{len(sources) + 1}", "label": label, "content": value.strip()[:7000]})
 
     root = _git_evidence(["rev-parse", "--show-toplevel"])
-    if root:
+    remote = _git_evidence(["remote", "get-url", "origin"]) if root else None
+    normalized_remote = (remote or "").casefold().replace("git@github.com:", "https://github.com/")
+    repository_confirmed = bool(
+        root
+        and re.search(r"github\\.com/andrevazao/dgm-mat(?:\\.git)?$", normalized_remote)
+    )
+    if repository_confirmed:
         add("Git repository root", root)
+        add("Repository identity", "origin confirmed as AndreVazao/DGM-MAT")
         add("Current branch", _git_evidence(["branch", "--show-current"]))
         add("HEAD commit", _git_evidence(["log", "-1", "--format=%H%n%cs%n%s"]))
-        remote = _git_evidence(["remote", "get-url", "origin"])
-        if remote:
-            remote = re.sub(r"(https?://)[^/@\s]+@", r"\1", remote)
-            add("Origin remote (credentials stripped)", remote)
+        remote = re.sub(r"(https?://)[^/@\\s]+@", r"\\1", remote or "")
+        add("Origin remote (credentials stripped)", remote)
         status = _git_evidence(["status", "--short", "--branch"])
         if status:
-            add("Working tree status (read-only)", "\n".join(status.splitlines()[:40]))
+            add("Working tree status (read-only)", "\\n".join(status.splitlines()[:40]))
+    elif root:
+        add("Local repository evidence", "Refused: origin did not confirm AndreVazao/DGM-MAT; local files and Git state were not read.")
 
     safe_files = (
         "pyproject.toml",
@@ -271,6 +278,10 @@ def apply_evidence_gate(result: dict[str, Any], task: dict[str, Any]) -> dict[st
         return result
     result["grounding_status"] = "evidence_citations_present_semantic_review_required"
     result["evidence_refs"] = sorted(cited_refs)
+    result["text"] = (
+        "NOTA DE VERACIDADE: o fornecedor citou IDs existentes, mas a correspondência semântica "
+        "de cada afirmação ainda requer validação independente.\\n\\n" + text
+    )
     return result
 
 
