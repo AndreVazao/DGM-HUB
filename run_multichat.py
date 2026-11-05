@@ -65,6 +65,7 @@ TASKS = EVENT_STORE.load_tasks()
 ACTIVE_PROCESSES: dict[str, set[subprocess.Popen]] = {name: set() for name in DEFAULT_STATE}
 CLAUDE_CLI_VERIFIED = False
 PROVIDER_VERIFICATION: dict[str, dict[str, Any]] = {}
+PROVIDER_VERIFICATION: dict[str, dict[str, Any]] = {}
 EVIDENCE_CACHE: dict[str, Any] = {"expires_at": 0.0, "packet": None}
 EVIDENCE_CACHE_LOCK = threading.RLock()
 
@@ -697,25 +698,65 @@ def stop_provider(name: str) -> dict[str, Any]:
 
 
 def provider_status() -> dict[str, Any]:
-    codex_ok = Path(CODEX_CMD).is_file()
-    claude_ok = CLAUDE_EXE.is_file()
-    ollama_online = http_online(f"{OLLAMA_URL}/api/tags")
-    dgm_online = http_online(DGM_MAT_HEALTH)
-    fcc_online = http_online(FCC_HEALTH)
+    checks = {
+        "ollama": f"{OLLAMA_URL}/api/tags",
+        "dgm_mat": DGM_MAT_HEALTH,
+        "fcc": FCC_HEALTH,
+        "kilo": KILO_URL + "/models",
+        "llm7": LLM7_URL + "/models",
+    }
+    with ThreadPoolExecutor(max_workers=len(checks)) as executor:
+        futures = {name: executor.submit(http_online, url) for name, url in checks.items()}
+        online = {}
+        for name, future in futures.items():
+            try:
+                online[name] = bool(future.result(timeout=2.0))
+            except Exception:
+                online[name] = False
+
+    codex_installed = Path(CODEX_CMD).is_file()
+    claude_installed = CLAUDE_EXE.is_file() and CLAUDE_NODE_EXE.is_file() and CLAUDE_CLI_JS.is_file()
+    fcc_online = online["fcc"]
     values = {
-        "codex": {"online": codex_ok, "installed": codex_ok, "description": "CLI por mensagem"},
-        "claude": {"online": fcc_online, "installed": claude_ok, "fcc_online": fcc_online, "cli_status": "response_verified" if CLAUDE_CLI_VERIFIED else "response_not_yet_verified", "description": "Claude Code via FCC; execucao isolada e somente de leitura"},
-        "ollama": {"online": ollama_online, "installed": bool(shutil.which("ollama")), "models": []},
+        "codex": {
+            "online": codex_installed and fcc_online,
+            "transport_online": fcc_online,
+            "installed": codex_installed,
+            "response_verified": PROVIDER_VERIFICATION.get("codex", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("codex", {}).get("verified_at"),
+            "description": "Codex CLI via perfil isolado e FCC/NVIDIA NIM",
+        },
+        "claude": {
+            "online": claude_installed and fcc_online,
+            "transport_online": fcc_online,
+            "installed": claude_installed,
+            "fcc_online": fcc_online,
+            "response_verified": PROVIDER_VERIFICATION.get("claude", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("claude", {}).get("verified_at"),
+            "cli_status": "response_verified" if PROVIDER_VERIFICATION.get("claude", {}).get("status") == "response_verified" else "response_not_yet_verified",
+            "description": "Claude Code terminal via FCC/NVIDIA NIM; execução isolada em modo plan",
+        },
+        "ollama": {"online": online["ollama"], "installed": bool(shutil.which("ollama")), "models": []},
         "dgm_mat": {
-            "online": dgm_online,
+            "online": online["dgm_mat"],
             "installed": DGM_MAT_ROOT.exists(),
             "mode": str(PROVIDERS["dgm_mat"].get("mode", "observer")),
             "description": "Runtime central DGM-MAT; modo selecionável no painel",
         },
-        "kilo": {"online": http_online(KILO_URL + "/models"), "installed": True, "description": "Kilo Gateway ? gratuito sem chave ? openrouter/free"},
-        "llm7": {"online": http_online(LLM7_URL + "/models"), "installed": True, "description": "LLM7 ? acesso an?nimo sem chave ? gpt-oss:20b"},
+        "kilo": {
+            "online": online["kilo"], "installed": True,
+            "response_verified": PROVIDER_VERIFICATION.get("kilo", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("kilo", {}).get("verified_at"),
+            "description": "Kilo Gateway gratuito sem chave; disponibilidade externa variável",
+        },
+        "llm7": {
+            "online": online["llm7"], "installed": True,
+            "response_verified": PROVIDER_VERIFICATION.get("llm7", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("llm7", {}).get("verified_at"),
+            "description": "LLM7 sem chave; disponibilidade externa variável",
+        },
     }
-    if ollama_online:
+    if online["ollama"]:
         try:
             values["ollama"]["models"] = [m.get("name") for m in requests.get(f"{OLLAMA_URL}/api/tags", timeout=2).json().get("models", [])]
         except requests.RequestException:
@@ -743,31 +784,68 @@ def run_ollama(prompt: str, model: str) -> dict[str, Any]:
     return {"provider": "ollama", "model": model, "text": data.get("message", {}).get("content", ""), "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
 
 
+class ProviderExecutionTimeout(TimeoutError):
+    def __init__(self, provider: str, timeout: int, partial_output: str):
+        self.provider = provider
+        self.timeout = timeout
+        self.partial_output = partial_output
+        detail = f"{provider} excedeu o limite de {timeout}s."
+        if partial_output:
+            detail += " Saída parcial preservada: " + partial_output[-1800:]
+        super().__init__(detail)
+
+
+def _output_text(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
 def run_cli(command: list[str], prompt: str, cwd: Path, provider: str, timeout: int = 150, env: dict[str, str] | None = None) -> dict[str, Any]:
     started = time.perf_counter()
     process = subprocess.Popen(
-        command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, encoding="utf-8", errors="replace", cwd=str(cwd), env=env or os.environ.copy(),
+        command,
+        stdin=subprocess.PIPE if prompt else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(cwd),
+        env=env or os.environ.copy(),
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     ACTIVE_PROCESSES.setdefault(provider, set()).add(process)
     try:
         try:
-            output, errors = process.communicate(input=prompt, timeout=timeout)
-        except subprocess.TimeoutExpired:
+            output, errors = process.communicate(input=prompt if prompt else None, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            partial = "\n".join(part for part in (_output_text(exc.output), _output_text(exc.stderr)) if part)
             stop_active_process(process)
             try:
-                process.communicate(timeout=5)
+                tail_output, tail_errors = process.communicate(timeout=5)
+                partial = "\n".join(part for part in (partial, tail_output or "", tail_errors or "") if part)
             except subprocess.TimeoutExpired:
                 process.kill()
-            raise
+                try:
+                    tail_output, tail_errors = process.communicate(timeout=2)
+                    partial = "\n".join(part for part in (partial, tail_output or "", tail_errors or "") if part)
+                except subprocess.SubprocessError:
+                    pass
+            raise ProviderExecutionTimeout(provider, timeout, partial[-4000:]) from None
     finally:
         ACTIVE_PROCESSES.setdefault(provider, set()).discard(process)
     output = (output or "").strip()
     errors = (errors or "").strip()
     if process.returncode != 0:
         raise RuntimeError(f"exit={process.returncode}; {errors[-2500:] or output[-2500:]}")
-    return {"provider": provider, "text": output or "(O agente terminou sem devolver texto.)", "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
+    duration = round(time.perf_counter() - started, 2)
+    PROVIDER_VERIFICATION[provider] = {
+        "status": "response_verified",
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "duration_seconds": duration,
+    }
+    return {"provider": provider, "text": output or "(O agente terminou sem devolver texto.)", "duration_seconds": duration, "status": "ok", "response_verified": True}
 
 
 def run_anonymous_api(provider: str, base_url: str, model: str, prompt: str) -> dict[str, Any]:
@@ -838,7 +916,7 @@ def make_prompt(
 def run_codex(prompt: str, cwd: Path) -> dict[str, Any]:
     if not Path(CODEX_CMD).is_file():
         raise RuntimeError(f"Launcher Codex Free não encontrado: {CODEX_CMD}")
-    return run_cli(["cmd.exe", "/d", "/c", CODEX_CMD, "exec", "--skip-git-repo-check", "-"], prompt, cwd, "codex", timeout=75)
+    return run_cli(["cmd.exe", "/d", "/c", CODEX_CMD, "exec", "--skip-git-repo-check", "-"], prompt, cwd, "codex", timeout=180)
 
 
 def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
@@ -866,7 +944,7 @@ def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
         "--no-session-persistence", "--output-format", "text",
         "--permission-mode", "plan",
     ]
-    result = run_cli(command, "", cwd, "claude", timeout=180, env=claude_env)
+    result = run_cli(command, "", cwd, "claude", timeout=240, env=claude_env)
     CLAUDE_CLI_VERIFIED = True
     return result
 
