@@ -268,18 +268,18 @@ def apply_evidence_gate(result: dict[str, Any], task: dict[str, Any]) -> dict[st
     """Do not present project-audit claims as usable unless they cite supplied evidence IDs."""
     text = str(result.get("text") or "")
     valid_refs = set(task.get("evidence_refs") or [])
-    cited_refs = set(re.findall(r"\\[(E\\d+)\\]", text))
+    cited_refs = set(re.findall(r"\[(E\d+)\]", text))
     factual_lines = [
         line.strip()
         for line in text.splitlines()
         if line.strip()
         and not line.strip().startswith("```")
-        and not re.fullmatch(r"#{1,6}\\s+[^.!?]+", line.strip())
+        and not re.fullmatch(r"#{1,6}\s+[^.!?]+", line.strip())
     ]
     uncited_lines = [
         line for line in factual_lines
-        if not re.search(r"\\[(E\\d+)\\]", line)
-        or not set(re.findall(r"\\[(E\\d+)\\]", line)).issubset(valid_refs)
+        if not re.search(r"\[(E\d+)\]", line)
+        or not set(re.findall(r"\[(E\d+)\]", line)).issubset(valid_refs)
     ]
     if not valid_refs or not cited_refs or not cited_refs.issubset(valid_refs) or uncited_lines:
         result["unverified_text"] = text[:12000]
