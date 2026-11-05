@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from concurrent.futures import ThreadPoolExecutor
 import os
 import re
 import shutil
@@ -40,13 +41,13 @@ CLAUDE_EXE = Path.home() / ".local" / "bin" / "fcc-claude.exe"
 CLAUDE_NODE_EXE = Path(r"C:\Program Files\nodejs\node.exe")
 CLAUDE_CLI_JS = Path.home() / "AppData" / "Local" / "ClaudeCode-JS-2.1.112" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
 CLAUDE_MCP_CONFIG = DATA_DIR / "empty-mcp.json"
-DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT")
+DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT").resolve()
 DGM_MAT_BASE_URL = os.getenv("DGM_MAT_BASE_URL", "http://127.0.0.1:8181").strip().rstrip("/")
 DGM_MAT_HEALTH = DGM_MAT_BASE_URL + "/health"
 DGM_MAT_THREAD_MAP_FILE = DATA_DIR / "dgm_mat_threads.json"
 _DGM_MAT_LOCK = threading.RLock()
 _DGM_MAT_SESSION: dict[str, Any] = {"token": None, "expires_at": 0.0}
-FCC_HEALTH = "http://127.0.0.1:8082/admin"
+FCC_HEALTH = "http://127.0.0.1:8082/health"
 
 DEFAULT_STATE = {
     "codex": {"enabled": True, "pid": None, "process_started_at": None},
@@ -63,6 +64,9 @@ EVENT_STORE.recover_incomplete_tasks()
 TASKS = EVENT_STORE.load_tasks()
 ACTIVE_PROCESSES: dict[str, set[subprocess.Popen]] = {name: set() for name in DEFAULT_STATE}
 CLAUDE_CLI_VERIFIED = False
+PROVIDER_VERIFICATION: dict[str, dict[str, Any]] = {}
+EVIDENCE_CACHE: dict[str, Any] = {"expires_at": 0.0, "packet": None}
+EVIDENCE_CACHE_LOCK = threading.RLock()
 
 
 class ChatRequest(BaseModel):
@@ -118,6 +122,167 @@ def http_online(url: str) -> bool:
         return requests.get(url, timeout=1.5).ok
     except requests.RequestException:
         return False
+
+
+def is_project_audit_request(message: str) -> bool:
+    normalized = message.casefold()
+    project_terms = ("dgm-mat", "repositório", "repositorio", "repository", "repo ")
+    audit_terms = (
+        "estado", "status", "audita", "auditoria", "erros", "correções",
+        "correcoes", "falta", "pendente", "build", "testes", "workflows",
+        "pull request", "branch", "commits",
+    )
+    return any(term in normalized for term in project_terms) and any(
+        term in normalized for term in audit_terms
+    )
+
+
+def _git_evidence(args: list[str]) -> str | None:
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(DGM_MAT_ROOT), *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if result.returncode != 0:
+        return None
+    return (result.stdout or "").strip()
+
+
+def collect_dgm_mat_evidence() -> dict[str, Any]:
+    """Collect a small, read-only, allowlisted evidence packet for project audits."""
+    now = time.monotonic()
+    with EVIDENCE_CACHE_LOCK:
+        cached = EVIDENCE_CACHE.get("packet")
+        if cached is not None and now < float(EVIDENCE_CACHE.get("expires_at", 0)):
+            return cached
+
+    sources: list[dict[str, str]] = []
+
+    def add(label: str, value: str | None) -> None:
+        if value and value.strip():
+            sources.append({"id": f"E{len(sources) + 1}", "label": label, "content": value.strip()[:7000]})
+
+    root = _git_evidence(["rev-parse", "--show-toplevel"])
+    remote = _git_evidence(["remote", "get-url", "origin"]) if root else None
+    normalized_remote = (remote or "").casefold().replace("git@github.com:", "https://github.com/")
+    repository_confirmed = bool(
+        root
+        and re.search(r"github\.com/andrevazao/dgm-mat(?:\.git)?$", normalized_remote)
+    )
+    if repository_confirmed:
+        add("Git repository root", root)
+        add("Repository identity", "origin confirmed as AndreVazao/DGM-MAT")
+        add("Current branch", _git_evidence(["branch", "--show-current"]))
+        add("HEAD commit", _git_evidence(["log", "-1", "--format=%H%n%cs%n%s"]))
+        remote = re.sub(r"(https?://)[^/@\s]+@", r"\1", remote or "")
+        add("Origin remote (credentials stripped)", remote)
+        status = _git_evidence(["status", "--short", "--branch"])
+        if status:
+            add("Working tree status (read-only)", "\\n".join(status.splitlines()[:40]))
+    elif root:
+        add("Local repository evidence", "Refused: origin did not confirm AndreVazao/DGM-MAT; local files and Git state were not read.")
+
+    safe_files = (
+        "pyproject.toml",
+        "README.md",
+        "docs/AUTONOMOUS_RUNTIME.md",
+        "docs/ARCHITECTURE_GUARDRAILS.md",
+    )
+    for relative in safe_files:
+        path = (DGM_MAT_ROOT / relative).resolve()
+        if DGM_MAT_ROOT == path or DGM_MAT_ROOT not in path.parents:
+            continue
+        try:
+            if path.is_file():
+                add(f"Allowlisted file: {relative}", path.read_text(encoding="utf-8", errors="replace")[:7000])
+        except OSError:
+            continue
+
+    workflows_dir = DGM_MAT_ROOT / ".github" / "workflows"
+    if workflows_dir.is_dir():
+        names = sorted(
+            item.name for item in workflows_dir.iterdir()
+            if item.is_file() and item.suffix.casefold() in {".yml", ".yaml"}
+        )
+        add("GitHub Actions workflow filenames", "\n".join(names) if names else "No workflow files found.")
+
+    tests_dir = DGM_MAT_ROOT / "tests"
+    if tests_dir.is_dir():
+        try:
+            test_files = sorted(
+                str(item.relative_to(DGM_MAT_ROOT))
+                for item in tests_dir.rglob("test_*.py")
+                if item.is_file() and not any(part in {".git", "__pycache__", ".venv"} for part in item.parts)
+            )
+            add("Python test file inventory", "\n".join(test_files[:120]) or "No test_*.py files found.")
+        except OSError:
+            pass
+
+    try:
+        response = requests.get(
+            "https://api.github.com/repos/AndreVazao/DGM-MAT/pulls",
+            params={"state": "open", "per_page": 50},
+            headers={"Accept": "application/vnd.github+json"},
+            timeout=(2, 6),
+        )
+        if response.ok:
+            rows = response.json()
+            add(
+                "GitHub open pull requests (public API)",
+                "\n".join(
+                    f"#{item.get('number')} {item.get('title')} | draft={item.get('draft')} | "
+                    f"head={((item.get('head') or {}).get('ref'))} | updated={item.get('updated_at')}"
+                    for item in rows if isinstance(item, dict)
+                ) or "GitHub reports no open pull requests.",
+            )
+        else:
+            add("GitHub open pull requests", f"Unavailable: HTTP {response.status_code}.")
+    except (requests.RequestException, ValueError, TypeError):
+        add("GitHub open pull requests", "Unavailable: public GitHub API request failed.")
+
+    packet = {
+        "available": bool(sources),
+        "collected_at": datetime.now(timezone.utc).isoformat(),
+        "refs": [item["id"] for item in sources],
+        "sources": sources,
+        "text": "\n\n".join(
+            f"[{item['id']}] {item['label']}\n{item['content']}" for item in sources
+        ),
+    }
+    with EVIDENCE_CACHE_LOCK:
+        EVIDENCE_CACHE.update({"expires_at": time.monotonic() + 60, "packet": packet})
+    return packet
+
+
+def apply_evidence_gate(result: dict[str, Any], task: dict[str, Any]) -> dict[str, Any]:
+    """Do not present project-audit claims as usable unless they cite supplied evidence IDs."""
+    text = str(result.get("text") or "")
+    valid_refs = set(task.get("evidence_refs") or [])
+    cited_refs = set(re.findall(r"\[(E\d+)\]", text))
+    if not valid_refs or not cited_refs or not cited_refs.issubset(valid_refs):
+        result["unverified_text"] = text[:12000]
+        result["grounding_status"] = "blocked_missing_or_invalid_evidence_citations"
+        result["status"] = "unverified"
+        result["text"] = (
+            "Resposta retida pelo contrato de evidência: o fornecedor não apresentou "
+            "citações válidas para os artefactos fornecidos. Não será tratada como diagnóstico factual. "
+            "A resposta original permanece registada para revisão."
+        )
+        return result
+    result["grounding_status"] = "evidence_citations_present_semantic_review_required"
+    result["evidence_refs"] = sorted(cited_refs)
+    result["text"] = (
+        "NOTA DE VERACIDADE: o fornecedor citou IDs existentes, mas a correspondência semântica "
+        "de cada afirmação ainda requer validação independente.\\n\\n" + text
+    )
+    return result
 
 
 def _dgm_mat_session_token() -> str:
@@ -543,25 +708,65 @@ def stop_provider(name: str) -> dict[str, Any]:
 
 
 def provider_status() -> dict[str, Any]:
-    codex_ok = Path(CODEX_CMD).is_file()
-    claude_ok = CLAUDE_EXE.is_file()
-    ollama_online = http_online(f"{OLLAMA_URL}/api/tags")
-    dgm_online = http_online(DGM_MAT_HEALTH)
-    fcc_online = http_online(FCC_HEALTH)
+    checks = {
+        "ollama": f"{OLLAMA_URL}/api/tags",
+        "dgm_mat": DGM_MAT_HEALTH,
+        "fcc": FCC_HEALTH,
+        "kilo": KILO_URL + "/models",
+        "llm7": LLM7_URL + "/models",
+    }
+    with ThreadPoolExecutor(max_workers=len(checks)) as executor:
+        futures = {name: executor.submit(http_online, url) for name, url in checks.items()}
+        online = {}
+        for name, future in futures.items():
+            try:
+                online[name] = bool(future.result(timeout=2.0))
+            except Exception:
+                online[name] = False
+
+    codex_installed = Path(CODEX_CMD).is_file()
+    claude_installed = CLAUDE_EXE.is_file() and CLAUDE_NODE_EXE.is_file() and CLAUDE_CLI_JS.is_file()
+    fcc_online = online["fcc"]
     values = {
-        "codex": {"online": codex_ok, "installed": codex_ok, "description": "CLI por mensagem"},
-        "claude": {"online": fcc_online, "installed": claude_ok, "fcc_online": fcc_online, "cli_status": "response_verified" if CLAUDE_CLI_VERIFIED else "response_not_yet_verified", "description": "Claude Code via FCC; execucao isolada e somente de leitura"},
-        "ollama": {"online": ollama_online, "installed": bool(shutil.which("ollama")), "models": []},
+        "codex": {
+            "online": codex_installed and fcc_online,
+            "transport_online": fcc_online,
+            "installed": codex_installed,
+            "response_verified": PROVIDER_VERIFICATION.get("codex", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("codex", {}).get("verified_at"),
+            "description": "Codex CLI via perfil isolado e FCC/NVIDIA NIM",
+        },
+        "claude": {
+            "online": claude_installed and fcc_online,
+            "transport_online": fcc_online,
+            "installed": claude_installed,
+            "fcc_online": fcc_online,
+            "response_verified": PROVIDER_VERIFICATION.get("claude", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("claude", {}).get("verified_at"),
+            "cli_status": "response_verified" if PROVIDER_VERIFICATION.get("claude", {}).get("status") == "response_verified" else "response_not_yet_verified",
+            "description": "Claude Code terminal via FCC/NVIDIA NIM; execução isolada em modo plan",
+        },
+        "ollama": {"online": online["ollama"], "installed": bool(shutil.which("ollama")), "models": []},
         "dgm_mat": {
-            "online": dgm_online,
+            "online": online["dgm_mat"],
             "installed": DGM_MAT_ROOT.exists(),
             "mode": str(PROVIDERS["dgm_mat"].get("mode", "observer")),
             "description": "Runtime central DGM-MAT; modo selecionável no painel",
         },
-        "kilo": {"online": http_online(KILO_URL + "/models"), "installed": True, "description": "Kilo Gateway ? gratuito sem chave ? openrouter/free"},
-        "llm7": {"online": http_online(LLM7_URL + "/models"), "installed": True, "description": "LLM7 ? acesso an?nimo sem chave ? gpt-oss:20b"},
+        "kilo": {
+            "online": online["kilo"], "installed": True,
+            "response_verified": PROVIDER_VERIFICATION.get("kilo", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("kilo", {}).get("verified_at"),
+            "description": "Kilo Gateway gratuito sem chave; disponibilidade externa variável",
+        },
+        "llm7": {
+            "online": online["llm7"], "installed": True,
+            "response_verified": PROVIDER_VERIFICATION.get("llm7", {}).get("status") == "response_verified",
+            "last_verified_at": PROVIDER_VERIFICATION.get("llm7", {}).get("verified_at"),
+            "description": "LLM7 sem chave; disponibilidade externa variável",
+        },
     }
-    if ollama_online:
+    if online["ollama"]:
         try:
             values["ollama"]["models"] = [m.get("name") for m in requests.get(f"{OLLAMA_URL}/api/tags", timeout=2).json().get("models", [])]
         except requests.RequestException:
@@ -589,31 +794,68 @@ def run_ollama(prompt: str, model: str) -> dict[str, Any]:
     return {"provider": "ollama", "model": model, "text": data.get("message", {}).get("content", ""), "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
 
 
+class ProviderExecutionTimeout(TimeoutError):
+    def __init__(self, provider: str, timeout: int, partial_output: str):
+        self.provider = provider
+        self.timeout = timeout
+        self.partial_output = partial_output
+        detail = f"{provider} excedeu o limite de {timeout}s."
+        if partial_output:
+            detail += " Saída parcial preservada: " + partial_output[-1800:]
+        super().__init__(detail)
+
+
+def _output_text(value: Any) -> str:
+    if isinstance(value, bytes):
+        return value.decode("utf-8", errors="replace")
+    return str(value or "")
+
+
 def run_cli(command: list[str], prompt: str, cwd: Path, provider: str, timeout: int = 150, env: dict[str, str] | None = None) -> dict[str, Any]:
     started = time.perf_counter()
     process = subprocess.Popen(
-        command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-        text=True, encoding="utf-8", errors="replace", cwd=str(cwd), env=env or os.environ.copy(),
+        command,
+        stdin=subprocess.PIPE if prompt else subprocess.DEVNULL,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(cwd),
+        env=env or os.environ.copy(),
         creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
     )
     ACTIVE_PROCESSES.setdefault(provider, set()).add(process)
     try:
         try:
-            output, errors = process.communicate(input=prompt, timeout=timeout)
-        except subprocess.TimeoutExpired:
+            output, errors = process.communicate(input=prompt if prompt else None, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            partial = "\n".join(part for part in (_output_text(exc.output), _output_text(exc.stderr)) if part)
             stop_active_process(process)
             try:
-                process.communicate(timeout=5)
+                tail_output, tail_errors = process.communicate(timeout=5)
+                partial = "\n".join(part for part in (partial, tail_output or "", tail_errors or "") if part)
             except subprocess.TimeoutExpired:
                 process.kill()
-            raise
+                try:
+                    tail_output, tail_errors = process.communicate(timeout=2)
+                    partial = "\n".join(part for part in (partial, tail_output or "", tail_errors or "") if part)
+                except subprocess.SubprocessError:
+                    pass
+            raise ProviderExecutionTimeout(provider, timeout, partial[-4000:]) from None
     finally:
         ACTIVE_PROCESSES.setdefault(provider, set()).discard(process)
     output = (output or "").strip()
     errors = (errors or "").strip()
     if process.returncode != 0:
         raise RuntimeError(f"exit={process.returncode}; {errors[-2500:] or output[-2500:]}")
-    return {"provider": provider, "text": output or "(O agente terminou sem devolver texto.)", "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
+    duration = round(time.perf_counter() - started, 2)
+    PROVIDER_VERIFICATION[provider] = {
+        "status": "response_verified",
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "duration_seconds": duration,
+    }
+    return {"provider": provider, "text": output or "(O agente terminou sem devolver texto.)", "duration_seconds": duration, "status": "ok", "response_verified": True}
 
 
 def run_anonymous_api(provider: str, base_url: str, model: str, prompt: str) -> dict[str, Any]:
@@ -640,23 +882,64 @@ def run_anonymous_api(provider: str, base_url: str, model: str, prompt: str) -> 
     if not content:
         finish = choices[0].get("finish_reason") if choices else "no_choices"
         raise RuntimeError(f"{provider} n?o devolveu texto (finish_reason={finish}).")
-    return {"provider": provider, "model": data.get("model", model), "text": content, "duration_seconds": round(time.perf_counter() - started, 2), "status": "ok"}
+    duration = round(time.perf_counter() - started, 2)
+    PROVIDER_VERIFICATION[provider] = {
+        "status": "response_verified",
+        "verified_at": datetime.now(timezone.utc).isoformat(),
+        "duration_seconds": duration,
+    }
+    return {
+        "provider": provider,
+        "model": data.get("model", model),
+        "text": content,
+        "duration_seconds": duration,
+        "status": "ok",
+        "response_verified": True,
+    }
 
 
-def make_prompt(message: str, conversation_id: str, provider: str) -> str:
+def make_prompt(
+    message: str,
+    conversation_id: str,
+    provider: str,
+    evidence_context: str | None = None,
+) -> str:
+    evidence_rules = (
+        "CONTRATO DE VERACIDADE OBRIGATÓRIO: não alegues acesso ao computador, terminal, "
+        "repositórios, contas, logs ou ficheiros que não estejam explicitamente no CONTEXTO DE EVIDÊNCIA. "
+        "Nunca inventes nomes de ficheiros, módulos, classes, dependências, versões, branches, commits, "
+        "testes, resultados, erros, workflows, PRs ou saídas de comandos. Não transformes recomendações "
+        "genéricas em erros encontrados. Distingue FACTOS, INFERÊNCIAS, RECOMENDAÇÕES e DESCONHECIDOS. "
+        "Cada afirmação factual sobre o estado do projeto tem de incluir pelo menos uma referência "
+        "exata [E1], [E2], etc., existente no contexto. Não inventes referências. Se a evidência não "
+        "permitir responder, diz claramente: NÃO TENHO EVIDÊNCIA SUFICIENTE.\n"
+    )
+    if evidence_context:
+        evidence_block = (
+            "CONTEXTO DE EVIDÊNCIA (recolha local read-only e metadados públicos; não é uma auditoria "
+            "completa nem prova de que cada afirmação inferida é correta):\n"
+            + evidence_context
+            + "\n"
+        )
+    else:
+        evidence_block = (
+            "CONTEXTO DE EVIDÊNCIA: NENHUM. Não tens acesso direto ao repositório local, ao GitHub "
+            "privado, ao terminal nem aos ficheiros do utilizador. Se o pedido exigir estado real do "
+            "projeto, declara que não tens acesso e não apresentes diagnósticos factuais.\n"
+        )
     return (
         "És um agente independente no DGM-HUB. Responde em Português de Portugal. "
-        "Analisa o pedido por mérito próprio; não inventes testes nem alterações feitas. "
-        "Se for engenharia, apresenta diagnóstico, proposta, riscos e validação. "
-        "Não alteres ficheiros nesta conversa: modo consultivo. "
-        f"Conversa: {conversation_id}. Papel: {provider}.\n\nPEDIDO DO ANDRÉ:\n{message}"
+        "Modo consultivo: não alteres ficheiros, não executes comandos e não declares ações que não fizeste. "
+        + evidence_rules
+        + evidence_block
+        + f"Conversa: {conversation_id}. Papel: {provider}.\n\nPEDIDO DO ANDRÉ:\n{message}"
     )
 
 
 def run_codex(prompt: str, cwd: Path) -> dict[str, Any]:
     if not Path(CODEX_CMD).is_file():
         raise RuntimeError(f"Launcher Codex Free não encontrado: {CODEX_CMD}")
-    return run_cli(["cmd.exe", "/d", "/c", CODEX_CMD, "exec", "--skip-git-repo-check", "-"], prompt, cwd, "codex", timeout=75)
+    return run_cli(["cmd.exe", "/d", "/c", CODEX_CMD, "exec", "--skip-git-repo-check", "-"], prompt, cwd, "codex", timeout=180)
 
 
 def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
@@ -684,7 +967,7 @@ def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
         "--no-session-persistence", "--output-format", "text",
         "--permission-mode", "plan",
     ]
-    result = run_cli(command, "", cwd, "claude", timeout=180, env=claude_env)
+    result = run_cli(command, "", cwd, "claude", timeout=240, env=claude_env)
     CLAUDE_CLI_VERIFIED = True
     return result
 
@@ -767,8 +1050,20 @@ def home() -> str:
     return HTML_FILE.read_text(encoding="utf-8")
 
 
+@app.get("/api/health/live")
+def health_live() -> dict[str, Any]:
+    """Fast liveness probe: no provider/network checks and no process spawning."""
+    return {"status": "ok", "service": "dgm-hub", "version": app.version}
+
+
+@app.get("/api/health/ready")
+def health_ready() -> dict[str, Any]:
+    return provider_status()
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
+    # Backward-compatible alias; this is a provider readiness check, not liveness.
     return provider_status()
 
 
@@ -826,12 +1121,16 @@ async def execute_provider(task_id: str, conversation_id: str, name: str, job: A
     TASKS[task_id] = EVENT_STORE.save_task(task)
     try:
         result = await asyncio.to_thread(job)
-    except subprocess.TimeoutExpired:
-        result = {"provider": name, "status": "timeout", "text": "Tempo limite excedido."}
+    except ProviderExecutionTimeout as exc:
+        result = {"provider": name, "status": "timeout", "text": str(exc), "partial_output": exc.partial_output}
+    except subprocess.TimeoutExpired as exc:
+        result = {"provider": name, "status": "timeout", "text": f"Tempo limite excedido: {exc}"}
     except Exception as exc:
         result = {"provider": name, "status": "error", "text": f"{type(exc).__name__}: {str(exc)[:2500]}"}
 
     result.setdefault("provider", name)
+    if task.get("requires_evidence") and name in {"codex", "claude", "kilo", "llm7"} and result.get("status") == "ok":
+        result = apply_evidence_gate(result, task)
     task = TASKS[task_id]
     task["results"][name] = result
     if name not in task["completed"]:
@@ -880,7 +1179,13 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
         raise HTTPException(409, "Providers desligados: " + ", ".join(disabled) + ". Liga-os no painel antes de enviar.")
     conversation_id = request.conversation_id or str(uuid.uuid4())
     workspace = safe_workspace(request.workspace)
-    prompt = make_prompt(message, conversation_id, "consultor")
+    evidence_packet = collect_dgm_mat_evidence() if is_project_audit_request(message) else None
+    prompt = make_prompt(
+        message,
+        conversation_id,
+        "consultor",
+        evidence_packet.get("text") if evidence_packet and evidence_packet.get("available") else None,
+    )
     task_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     task = {
@@ -892,6 +1197,9 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
         "created_at": created_at,
         "updated_at": created_at,
         "status": "queued",
+        "requires_evidence": bool(evidence_packet),
+        "evidence_refs": list(evidence_packet.get("refs", [])) if evidence_packet else [],
+        "evidence_collected_at": evidence_packet.get("collected_at") if evidence_packet else None,
     }
     TASKS[task_id] = task
     EVENT_STORE.create_task(
