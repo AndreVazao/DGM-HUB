@@ -1027,8 +1027,20 @@ def home() -> str:
     return HTML_FILE.read_text(encoding="utf-8")
 
 
+@app.get("/api/health/live")
+def health_live() -> dict[str, Any]:
+    """Fast liveness probe: no provider/network checks and no process spawning."""
+    return {"status": "ok", "service": "dgm-hub", "version": app.version}
+
+
+@app.get("/api/health/ready")
+def health_ready() -> dict[str, Any]:
+    return provider_status()
+
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
+    # Backward-compatible alias; this is a provider readiness check, not liveness.
     return provider_status()
 
 
@@ -1086,12 +1098,16 @@ async def execute_provider(task_id: str, conversation_id: str, name: str, job: A
     TASKS[task_id] = EVENT_STORE.save_task(task)
     try:
         result = await asyncio.to_thread(job)
-    except subprocess.TimeoutExpired:
-        result = {"provider": name, "status": "timeout", "text": "Tempo limite excedido."}
+    except ProviderExecutionTimeout as exc:
+        result = {"provider": name, "status": "timeout", "text": str(exc), "partial_output": exc.partial_output}
+    except subprocess.TimeoutExpired as exc:
+        result = {"provider": name, "status": "timeout", "text": f"Tempo limite excedido: {exc}"}
     except Exception as exc:
         result = {"provider": name, "status": "error", "text": f"{type(exc).__name__}: {str(exc)[:2500]}"}
 
     result.setdefault("provider", name)
+    if task.get("requires_evidence") and name in {"codex", "claude", "kilo", "llm7"} and result.get("status") == "ok":
+        result = apply_evidence_gate(result, task)
     task = TASKS[task_id]
     task["results"][name] = result
     if name not in task["completed"]:
@@ -1140,7 +1156,13 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
         raise HTTPException(409, "Providers desligados: " + ", ".join(disabled) + ". Liga-os no painel antes de enviar.")
     conversation_id = request.conversation_id or str(uuid.uuid4())
     workspace = safe_workspace(request.workspace)
-    prompt = make_prompt(message, conversation_id, "consultor")
+    evidence_packet = collect_dgm_mat_evidence() if is_project_audit_request(message) else None
+    prompt = make_prompt(
+        message,
+        conversation_id,
+        "consultor",
+        evidence_packet.get("text") if evidence_packet and evidence_packet.get("available") else None,
+    )
     task_id = str(uuid.uuid4())
     created_at = datetime.now(timezone.utc).isoformat()
     task = {
@@ -1152,6 +1174,9 @@ async def chat(request: ChatRequest) -> dict[str, Any]:
         "created_at": created_at,
         "updated_at": created_at,
         "status": "queued",
+        "requires_evidence": bool(evidence_packet),
+        "evidence_refs": list(evidence_packet.get("refs", [])) if evidence_packet else [],
+        "evidence_collected_at": evidence_packet.get("collected_at") if evidence_packet else None,
     }
     TASKS[task_id] = task
     EVENT_STORE.create_task(
