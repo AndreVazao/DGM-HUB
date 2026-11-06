@@ -40,7 +40,19 @@ FCC_SERVER_EXE = Path.home() / ".local" / "bin" / "fcc-server.exe"
 CLAUDE_EXE = Path.home() / ".local" / "bin" / "fcc-claude.exe"
 CLAUDE_NODE_EXE = Path(r"C:\Program Files\nodejs\node.exe")
 CLAUDE_CLI_JS = Path.home() / "AppData" / "Local" / "ClaudeCode-JS-2.1.112" / "node_modules" / "@anthropic-ai" / "claude-code" / "cli.js"
-CLAUDE_MCP_CONFIG = DATA_DIR / "empty-mcp.json"
+CLAUDE_MCP_CONFIG = DATA_DIR / "windows-readonly-mcp.json"
+WINDOWS_MCP_EXE = Path(os.getenv(
+    "DGM_WINDOWS_MCP_EXE",
+    r"C:\AI\tools\windows-mcp-1.3.28\Sbroenne.WindowsMcp.exe",
+))
+WINDOWS_MCP_READ_ONLY_TOOLS = (
+    "screenshot_control",
+    "ui_snapshot",
+    "ui_find",
+    "ui_read",
+    "ui_read_table",
+    "ui_wait",
+)
 DGM_MAT_ROOT = Path(r"C:\ProgramasGodMode\DGM-MAT").resolve()
 DGM_MAT_BASE_URL = os.getenv("DGM_MAT_BASE_URL", "http://127.0.0.1:8181").strip().rstrip("/")
 DGM_MAT_HEALTH = DGM_MAT_BASE_URL + "/health"
@@ -986,15 +998,36 @@ def run_codex(prompt: str, cwd: Path) -> dict[str, Any]:
     return run_cli(["cmd.exe", "/d", "/c", CODEX_CMD, "exec", "--skip-git-repo-check", "-"], prompt, cwd, "codex", timeout=180)
 
 
+def ensure_claude_mcp_config() -> list[str]:
+    """Expose only read-only Windows UI tools to the isolated Claude runner."""
+    CLAUDE_MCP_CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    if WINDOWS_MCP_EXE.is_file():
+        config = {
+            "mcpServers": {
+                "windows": {
+                    "command": str(WINDOWS_MCP_EXE),
+                    "args": [],
+                }
+            }
+        }
+        allowed_tools = [f"mcp__windows__{name}" for name in WINDOWS_MCP_READ_ONLY_TOOLS]
+    else:
+        # Preserve the previous no-MCP behavior on hosts without Windows MCP.
+        config = {"mcpServers": {}}
+        allowed_tools = []
+    temporary = CLAUDE_MCP_CONFIG.with_suffix(".tmp")
+    temporary.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    temporary.replace(CLAUDE_MCP_CONFIG)
+    return allowed_tools
+
+
 def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
     global CLAUDE_CLI_VERIFIED
     if not http_online(FCC_HEALTH):
         raise RuntimeError("FCC Server is not active. Enable Claude in the provider panel.")
     if not CLAUDE_EXE.is_file():
         raise RuntimeError(f"FCC Claude launcher not found: {CLAUDE_EXE}")
-    CLAUDE_MCP_CONFIG.parent.mkdir(parents=True, exist_ok=True)
-    if not CLAUDE_MCP_CONFIG.is_file():
-        CLAUDE_MCP_CONFIG.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
+    allowed_mcp_tools = ensure_claude_mcp_config()
     claude_env = os.environ.copy()
     claude_env.update({
         "ANTHROPIC_BASE_URL": "http://127.0.0.1:8082",
@@ -1012,6 +1045,8 @@ def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
         "--no-session-persistence", "--output-format", "text",
         "--permission-mode", "plan", "--tools", "",
     ]
+    if allowed_mcp_tools:
+        command.extend(["--allowedTools", ",".join(allowed_mcp_tools)])
     result = run_cli(command, prompt, cwd, "claude", timeout=150, env=claude_env)
     if result.get("status") == "ok" and result.get("response_verified") is True:
         CLAUDE_CLI_VERIFIED = True
