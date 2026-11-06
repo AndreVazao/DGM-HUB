@@ -961,8 +961,8 @@ def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
     global CLAUDE_CLI_VERIFIED
     if not http_online(FCC_HEALTH):
         raise RuntimeError("FCC Server is not active. Enable Claude in the provider panel.")
-    if not CLAUDE_NODE_EXE.is_file() or not CLAUDE_CLI_JS.is_file():
-        raise RuntimeError(f"Claude Code CLI not found: {CLAUDE_CLI_JS}")
+    if not CLAUDE_EXE.is_file():
+        raise RuntimeError(f"FCC Claude launcher not found: {CLAUDE_EXE}")
     CLAUDE_MCP_CONFIG.parent.mkdir(parents=True, exist_ok=True)
     if not CLAUDE_MCP_CONFIG.is_file():
         CLAUDE_MCP_CONFIG.write_text(json.dumps({"mcpServers": {}}), encoding="utf-8")
@@ -970,20 +970,22 @@ def run_claude(prompt: str, cwd: Path) -> dict[str, Any]:
     claude_env.update({
         "ANTHROPIC_BASE_URL": "http://127.0.0.1:8082",
         "ANTHROPIC_AUTH_TOKEN": "freecc",
-        "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY": "1",
-        "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "190000",
         "DISABLE_AUTOUPDATER": "1",
         "CI": "1",
         "TERM": "dumb",
     })
+    # Use the verified FCC launcher rather than invoking the Node CLI directly.
+    # Bare + tools-disabled mode avoids background model discovery and local tool
+    # prefetches that previously caused the free-only consultation to time out.
     command = [
-        str(CLAUDE_NODE_EXE), str(CLAUDE_CLI_JS), "-p", prompt,
+        str(CLAUDE_EXE), "-p", "--bare",
         "--strict-mcp-config", "--mcp-config", str(CLAUDE_MCP_CONFIG),
         "--no-session-persistence", "--output-format", "text",
-        "--permission-mode", "plan",
+        "--permission-mode", "plan", "--tools", "",
     ]
-    result = run_cli(command, "", cwd, "claude", timeout=240, env=claude_env)
-    CLAUDE_CLI_VERIFIED = True
+    result = run_cli(command, prompt, cwd, "claude", timeout=150, env=claude_env)
+    if result.get("status") == "ok" and result.get("response_verified") is True:
+        CLAUDE_CLI_VERIFIED = True
     return result
 
 
