@@ -64,11 +64,16 @@ def test_workspace_cannot_escape_hub_repository(tmp_path: Path):
         hub.safe_workspace(str(tmp_path))
     assert exc.value.status_code == 403
 
-def test_run_claude_uses_verified_fcc_launcher_and_disables_tools(monkeypatch, tmp_path: Path):
+def test_run_claude_uses_verified_fcc_launcher_and_readonly_windows_mcp(monkeypatch, tmp_path: Path):
+    import json
+
     launcher = tmp_path / "fcc-claude.exe"
     launcher.write_text("test", encoding="utf-8")
-    mcp_config = tmp_path / "empty-mcp.json"
+    windows_exe = tmp_path / "Sbroenne.WindowsMcp.exe"
+    windows_exe.write_text("test", encoding="utf-8")
+    mcp_config = tmp_path / "windows-readonly-mcp.json"
     monkeypatch.setattr(hub, "CLAUDE_EXE", launcher)
+    monkeypatch.setattr(hub, "WINDOWS_MCP_EXE", windows_exe)
     monkeypatch.setattr(hub, "CLAUDE_MCP_CONFIG", mcp_config)
     monkeypatch.setattr(hub, "http_online", lambda _url: True)
     monkeypatch.setattr(hub, "CLAUDE_CLI_VERIFIED", False)
@@ -99,6 +104,12 @@ def test_run_claude_uses_verified_fcc_launcher_and_disables_tools(monkeypatch, t
     assert "--strict-mcp-config" in captured["command"]
     assert "--no-session-persistence" in captured["command"]
     assert captured["command"][captured["command"].index("--tools") + 1] == ""
+    allowed = captured["command"][captured["command"].index("--allowedTools") + 1].split(",")
+    assert allowed == [f"mcp__windows__{name}" for name in hub.WINDOWS_MCP_READ_ONLY_TOOLS]
+    assert not any(name.endswith(("ui_click", "ui_type", "window_management")) for name in allowed)
+    config = json.loads(mcp_config.read_text(encoding="utf-8"))
+    assert config["mcpServers"]["windows"]["command"] == str(windows_exe)
+    assert config["mcpServers"]["windows"]["args"] == []
     assert captured["prompt"] == "one bounded test"
     assert captured["provider"] == "claude"
     assert captured["timeout"] == 150
