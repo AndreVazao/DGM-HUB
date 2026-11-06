@@ -19,3 +19,18 @@ def test_local_launcher_is_loopback_only_and_does_not_start_optional_providers()
 def test_cmd_launcher_invokes_the_repository_powershell_script():
     command = (ROOT / "Start-DGM-HUB.cmd").read_text(encoding="utf-8")
     assert "scripts\\Start-DGM-HUB.ps1" in command
+
+
+def test_launcher_serializes_startup_and_refuses_existing_dgm_mat_processes():
+    script = (ROOT / "scripts" / "Start-DGM-HUB.ps1").read_text(encoding="utf-8")
+    assert "System.Threading.Mutex" in script
+    assert "DGM-HUB-Startup-$Port" in script
+    assert "Get-CimInstance Win32_Process" in script
+    assert "Já existe um processo DGM-MAT" in script
+    assert "Não iniciei uma segunda instância" in script
+
+
+def test_legacy_multichat_launcher_delegates_to_canonical_single_instance_launcher():
+    script = (ROOT / "Start-DGM-HUB-MultiChat.ps1").read_text(encoding="utf-8")
+    assert "scripts\\Start-DGM-HUB.ps1" in script
+    assert "uvicorn" not in script.casefold()
