@@ -169,6 +169,18 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
         if value and value.strip():
             sources.append({"id": f"E{len(sources) + 1}", "label": label, "content": value.strip()[:7000]})
 
+    # Make the evidence packet's boundaries explicit and citable. Absence of
+    # Hub/provider artifacts is a limitation of this packet, not proof that
+    # those artifacts do not exist elsewhere.
+    add(
+        "Evidence packet scope and limitations",
+        "This packet is a bounded, read-only sample of the confirmed DGM-MAT repository "
+        "and public DGM-MAT GitHub pull-request metadata. It does not read the DGM-HUB "
+        "repository, local Hub files, provider configuration, FCC logs, private AI "
+        "conversation history, credentials, or tokens. It cannot prove the presence "
+        "or absence of an integration beyond the supplied DGM-MAT evidence.",
+    )
+
     root = _git_evidence(["rev-parse", "--show-toplevel"])
     remote = _git_evidence(["remote", "get-url", "origin"]) if root else None
     normalized_remote = (remote or "").casefold().replace("git@github.com:", "https://github.com/")
@@ -267,6 +279,18 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
 def apply_evidence_gate(result: dict[str, Any], task: dict[str, Any]) -> dict[str, Any]:
     """Do not present project-audit claims as usable unless they cite supplied evidence IDs."""
     text = str(result.get("text") or "")
+    normalized_text = " ".join(text.strip().casefold().split())
+    if normalized_text in {
+        "não tenho evidência suficiente.",
+        "nao tenho evidencia suficiente.",
+    }:
+        # An explicit abstention contains no factual project claim. Preserve it
+        # as a valid provider response instead of treating it as fabricated evidence.
+        result["grounding_status"] = "abstained_insufficient_evidence"
+        result["status"] = "abstained"
+        result["evidence_refs"] = []
+        return result
+
     valid_refs = set(task.get("evidence_refs") or [])
     cited_refs = set(re.findall(r"\[(E\d+)\]", text))
     factual_lines = [
@@ -926,8 +950,13 @@ def make_prompt(
         "testes, resultados, erros, workflows, PRs ou saídas de comandos. Não transformes recomendações "
         "genéricas em erros encontrados. Distingue FACTOS, INFERÊNCIAS, RECOMENDAÇÕES e DESCONHECIDOS. "
         "Cada afirmação factual sobre o estado do projeto tem de incluir pelo menos uma referência "
-        "exata [E1], [E2], etc., existente no contexto. Não inventes referências. Se a evidência não "
-        "permitir responder, diz claramente: NÃO TENHO EVIDÊNCIA SUFICIENTE.\n"
+        "exata [E1], [E2], etc., existente no contexto. Não inventes referências. "
+        "REGRA DE FORMATO: cada linha de conteúdo não vazia (factos, inferências, riscos, "
+        "recomendações e conclusões) tem de terminar com pelo menos uma referência [E#] "
+        "existente no contexto. Títulos Markdown podem ficar sem referência. Não incluas "
+        "recomendações genéricas sem suporte no pacote. Se não conseguires produzir sequer "
+        "uma afirmação ou recomendação suportada, responde apenas com esta linha exata: "
+        "NÃO TENHO EVIDÊNCIA SUFICIENTE.\n"
     )
     if evidence_context:
         evidence_block = (
@@ -1155,7 +1184,7 @@ async def execute_provider(task_id: str, conversation_id: str, name: str, job: A
     if len(task["completed"]) >= len(task["targets"]):
         successful = sum(
             1 for item in task["results"].values()
-            if item.get("status") in {"ok", "observer"}
+            if item.get("status") in {"ok", "observer", "abstained"}
         )
         if successful == len(task["targets"]):
             task["status"] = "completed"
