@@ -83,12 +83,57 @@ def test_evidence_collector_uses_allowlisted_files_and_public_pr_metadata(monkey
 
     assert packet["available"] is True
     assert packet["refs"]
+    assert packet["sources"][0]["label"] == "Evidence packet scope and limitations"
+    assert "does not read the DGM-HUB repository" in packet["text"]
     assert "feature/evidence-audit" in packet["text"]
     assert "pyproject.toml" in packet["text"]
     assert "ci.yml" in packet["text"]
     assert "tests/test_runtime.py" in packet["text"]
     assert "#225 Require evidence-grounded audits" in packet["text"]
     assert "https://github.com/AndreVazao/DGM-MAT.git" in packet["text"]
+
+
+def test_project_audit_prompt_requires_citations_on_every_content_line():
+    prompt = hub.make_prompt(
+        "Audita o DGM-MAT.",
+        "conversation-audit",
+        "codex",
+        "[E1] Evidence packet scope\nBounded read-only evidence.",
+    )
+
+    assert "cada linha de conteúdo não vazia" in prompt
+    assert "recomendações e conclusões" in prompt
+    assert "responde apenas com esta linha exata" in prompt
+
+
+def test_evidence_gate_accepts_explicit_abstention_without_claims():
+    task = {"requires_evidence": True, "evidence_refs": ["E1", "E2"]}
+    result = {
+        "provider": "claude",
+        "status": "ok",
+        "text": "NÃO TENHO EVIDÊNCIA SUFICIENTE.",
+    }
+
+    gated = hub.apply_evidence_gate(result, task)
+
+    assert gated["status"] == "abstained"
+    assert gated["grounding_status"] == "abstained_insufficient_evidence"
+    assert gated["evidence_refs"] == []
+    assert gated["text"] == "NÃO TENHO EVIDÊNCIA SUFICIENTE."
+
+
+def test_evidence_gate_does_not_allow_claims_after_an_abstention():
+    task = {"requires_evidence": True, "evidence_refs": ["E1"]}
+    result = {
+        "provider": "claude",
+        "status": "ok",
+        "text": "NÃO TENHO EVIDÊNCIA SUFICIENTE.\nA branch atual é main.",
+    }
+
+    gated = hub.apply_evidence_gate(result, task)
+
+    assert gated["status"] == "unverified"
+    assert gated["grounding_status"] == "blocked_missing_or_invalid_evidence_citations"
 
 
 def test_evidence_gate_hides_unreferenced_provider_claims():
