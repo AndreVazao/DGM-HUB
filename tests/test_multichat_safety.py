@@ -63,3 +63,65 @@ def test_workspace_cannot_escape_hub_repository(tmp_path: Path):
     with pytest.raises(HTTPException) as exc:
         hub.safe_workspace(str(tmp_path))
     assert exc.value.status_code == 403
+
+def test_run_claude_uses_verified_fcc_launcher_and_disables_tools(monkeypatch, tmp_path: Path):
+    launcher = tmp_path / "fcc-claude.exe"
+    launcher.write_text("test", encoding="utf-8")
+    mcp_config = tmp_path / "empty-mcp.json"
+    monkeypatch.setattr(hub, "CLAUDE_EXE", launcher)
+    monkeypatch.setattr(hub, "CLAUDE_MCP_CONFIG", mcp_config)
+    monkeypatch.setattr(hub, "http_online", lambda _url: True)
+    monkeypatch.setattr(hub, "CLAUDE_CLI_VERIFIED", False)
+    captured = {}
+
+    def fake_run_cli(command, prompt, cwd, provider, timeout=150, env=None):
+        captured.update(
+            command=command,
+            prompt=prompt,
+            cwd=cwd,
+            provider=provider,
+            timeout=timeout,
+            env=env,
+        )
+        return {
+            "provider": "claude",
+            "text": "FCC response",
+            "status": "ok",
+            "response_verified": True,
+        }
+
+    monkeypatch.setattr(hub, "run_cli", fake_run_cli)
+    result = hub.run_claude("one bounded test", tmp_path)
+
+    assert result["status"] == "ok"
+    assert captured["command"][0] == str(launcher)
+    assert "--bare" in captured["command"]
+    assert "--strict-mcp-config" in captured["command"]
+    assert "--no-session-persistence" in captured["command"]
+    assert captured["command"][captured["command"].index("--tools") + 1] == ""
+    assert captured["prompt"] == "one bounded test"
+    assert captured["provider"] == "claude"
+    assert captured["timeout"] == 150
+    assert captured["env"]["ANTHROPIC_BASE_URL"] == "http://127.0.0.1:8082"
+    assert captured["env"]["ANTHROPIC_AUTH_TOKEN"] == "freecc"
+    assert mcp_config.is_file()
+    assert hub.CLAUDE_CLI_VERIFIED is True
+
+
+def test_run_claude_timeout_does_not_mark_provider_verified(monkeypatch, tmp_path: Path):
+    launcher = tmp_path / "fcc-claude.exe"
+    launcher.write_text("test", encoding="utf-8")
+    monkeypatch.setattr(hub, "CLAUDE_EXE", launcher)
+    monkeypatch.setattr(hub, "CLAUDE_MCP_CONFIG", tmp_path / "empty-mcp.json")
+    monkeypatch.setattr(hub, "http_online", lambda _url: True)
+    monkeypatch.setattr(hub, "CLAUDE_CLI_VERIFIED", False)
+
+    def fail_run_cli(*args, **kwargs):
+        raise RuntimeError("provider timeout")
+
+    monkeypatch.setattr(hub, "run_cli", fail_run_cli)
+    with pytest.raises(RuntimeError, match="provider timeout"):
+        hub.run_claude("one bounded test", tmp_path)
+
+    assert hub.CLAUDE_CLI_VERIFIED is False
+
