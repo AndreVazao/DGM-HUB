@@ -119,6 +119,30 @@ def test_run_claude_uses_verified_fcc_launcher_and_readonly_windows_mcp(monkeypa
     assert hub.CLAUDE_CLI_VERIFIED is True
 
 
+def test_run_claude_keeps_empty_mcp_when_windows_server_is_missing(monkeypatch, tmp_path: Path):
+    import json
+
+    launcher = tmp_path / "fcc-claude.exe"
+    launcher.write_text("test", encoding="utf-8")
+    missing_windows_exe = tmp_path / "missing" / "Sbroenne.WindowsMcp.exe"
+    mcp_config = tmp_path / "windows-readonly-mcp.json"
+    monkeypatch.setattr(hub, "CLAUDE_EXE", launcher)
+    monkeypatch.setattr(hub, "WINDOWS_MCP_EXE", missing_windows_exe)
+    monkeypatch.setattr(hub, "CLAUDE_MCP_CONFIG", mcp_config)
+    monkeypatch.setattr(hub, "http_online", lambda _url: True)
+    captured = {}
+
+    def fake_run_cli(command, prompt, cwd, provider, timeout=150, env=None):
+        captured["command"] = command
+        return {"provider": "claude", "text": "response", "status": "ok", "response_verified": True}
+
+    monkeypatch.setattr(hub, "run_cli", fake_run_cli)
+    hub.run_claude("bounded test", tmp_path)
+
+    assert "mcp__windows__" not in " ".join(captured["command"])
+    assert json.loads(mcp_config.read_text(encoding="utf-8")) == {"mcpServers": {}}
+
+
 def test_run_claude_timeout_does_not_mark_provider_verified(monkeypatch, tmp_path: Path):
     launcher = tmp_path / "fcc-claude.exe"
     launcher.write_text("test", encoding="utf-8")
