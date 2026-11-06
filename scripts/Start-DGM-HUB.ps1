@@ -44,6 +44,17 @@ function Get-PythonCommand {
 function Start-DgmMat {
     $health = 'http://127.0.0.1:8181/health'
     if (Test-LocalUrl $health) { Write-Host 'DGM-MAT já está saudável.'; return }
+    $ExistingRuntime = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {
+        ($_.Name -ieq 'DGM-MAT.exe' -and $_.CommandLine -match '--headless') -or
+        ($_.Name -match '^pythonw?\.exe$' -and $_.CommandLine -match 'main\.py' -and $_.CommandLine -match '--headless' -and $_.CommandLine -match [regex]::Escape($DgmRoot))
+    })
+    if ($ExistingRuntime.Count -gt 0) {
+        for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Milliseconds 500
+            if (Test-LocalUrl $health) { Write-Host "DGM-MAT já estava em arranque (PID $($ExistingRuntime[0].ProcessId)) e ficou saudável."; return }
+        }
+        throw "Já existe um processo DGM-MAT (PID $($ExistingRuntime[0].ProcessId)), mas ainda não está saudável. Não iniciei uma segunda instância."
+    }
     if (Test-PortListener 8181) { throw 'A porta 8181 está ocupada mas o DGM-MAT não responde ao health check. Não vou iniciar uma segunda instância.' }
 
     $exe = Join-Path $DgmRoot 'installed\DGM-MAT.exe'
@@ -80,6 +91,16 @@ function Start-Hub {
     throw 'DGM-HUB não iniciou dentro de 20 segundos. Abri o registo de erros.'
 }
 
-Start-DgmMat
-Start-Hub
+$StartupMutex = New-Object System.Threading.Mutex($false, "Local\DGM-HUB-Startup-$Port")
+$StartupLock = $false
+try {
+    try { $StartupLock = $StartupMutex.WaitOne(0) }
+    catch [System.Threading.AbandonedMutexException] { $StartupLock = $true }
+    if (-not $StartupLock) { throw 'O arranque do DGM-HUB já está a ser executado por outra janela. Não iniciei serviços duplicados.' }
+    Start-DgmMat
+    Start-Hub
+} finally {
+    if ($StartupLock) { $StartupMutex.ReleaseMutex() }
+    $StartupMutex.Dispose()
+}
 Start-Process "http://127.0.0.1:$Port"
