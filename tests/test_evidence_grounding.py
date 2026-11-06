@@ -142,7 +142,7 @@ def test_evidence_gate_rejects_uncited_claim_even_when_another_line_is_cited():
     result = {
         "provider": "llm7",
         "status": "ok",
-        "text": "A branch atual é main [E1].\\nO projeto usa numpy==1.18.5.",
+        "text": "A branch atual é main [E1].\nO projeto usa numpy==1.18.5.",
     }
 
     gated = hub.apply_evidence_gate(result, task)
@@ -157,7 +157,7 @@ def test_evidence_gate_rejects_unknown_reference_on_one_line():
     result = {
         "provider": "llm7",
         "status": "ok",
-        "text": "A branch é main [E1].\\nA dependência está obsoleta [E9].",
+        "text": "A branch é main [E1].\nA dependência está obsoleta [E9].",
     }
 
     gated = hub.apply_evidence_gate(result, task)
