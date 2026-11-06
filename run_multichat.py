@@ -185,7 +185,7 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
         add("Origin remote (credentials stripped)", remote)
         status = _git_evidence(["status", "--short", "--branch"])
         if status:
-            add("Working tree status (read-only)", "\\n".join(status.splitlines()[:40]))
+            add("Working tree status (read-only)", "\n".join(status.splitlines()[:40]))
     elif root:
         add("Local repository evidence", "Refused: origin did not confirm AndreVazao/DGM-MAT; local files and Git state were not read.")
 
@@ -212,7 +212,7 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
                 item.name for item in workflows_dir.iterdir()
                 if item.is_file() and item.suffix.casefold() in {".yml", ".yaml"}
             )
-            add("GitHub Actions workflow filenames", "\\n".join(names) if names else "No workflow files found.")
+            add("GitHub Actions workflow filenames", "\n".join(names) if names else "No workflow files found.")
 
         tests_dir = DGM_MAT_ROOT / "tests"
         if tests_dir.is_dir():
@@ -222,7 +222,7 @@ def collect_dgm_mat_evidence() -> dict[str, Any]:
                     for item in tests_dir.rglob("test_*.py")
                     if item.is_file() and not any(part in {".git", "__pycache__", ".venv"} for part in item.parts)
                 )
-                add("Python test file inventory", "\\n".join(test_files[:120]) or "No test_*.py files found.")
+                add("Python test file inventory", "\n".join(test_files[:120]) or "No test_*.py files found.")
             except OSError:
                 pass
     else:
