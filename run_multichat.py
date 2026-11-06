@@ -1016,7 +1016,7 @@ def ensure_claude_mcp_config() -> list[str]:
         config = {"mcpServers": {}}
         allowed_tools = []
     temporary = CLAUDE_MCP_CONFIG.with_suffix(".tmp")
-    temporary.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+    temporary.write_text(json.dumps(config, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     temporary.replace(CLAUDE_MCP_CONFIG)
     return allowed_tools
 
